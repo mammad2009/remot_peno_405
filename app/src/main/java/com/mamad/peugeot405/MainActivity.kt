@@ -408,8 +408,8 @@ fun SettingsScreen(vm: MainViewModel) {
             CardBox(Cyan) {
                 CardTitle(S.language, "LANGUAGE", Cyan)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    LangChip("فارسی", vm.lang == "fa") { vm.setLang("fa") }
-                    LangChip("English", vm.lang == "en") { vm.setLang("en") }
+                    LangChip("فارسی", vm.lang == "fa") { vm.switchLang("fa") }
+                    LangChip("English", vm.lang == "en") { vm.switchLang("en") }
                 }
             }
         }
