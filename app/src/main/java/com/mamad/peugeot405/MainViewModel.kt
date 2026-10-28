@@ -88,7 +88,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------------- زبان ----------------
-    fun setLang(l: String) {
+    fun switchLang(l: String) {
         lang = if (l == "en") "en" else "fa"
         settings.edit().putString("lang", lang).apply()
     }
