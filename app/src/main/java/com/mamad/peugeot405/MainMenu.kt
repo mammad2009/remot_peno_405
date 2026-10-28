@@ -156,7 +156,7 @@ fun Header(vm: MainViewModel, onConnect: () -> Unit, onRemote: () -> Unit) {
             Box(
                 Modifier.size(40.dp).clip(CircleShape).background(Panel)
                     .border(1.dp, Color(0x33FFFFFF), CircleShape)
-                    .clickable { vm.setLang(if (vm.lang == "fa") "en" else "fa") },
+                    .clickable { vm.switchLang(if (vm.lang == "fa") "en" else "fa") },
                 contentAlignment = Alignment.Center
             ) {
                 Text(if (vm.lang == "fa") "EN" else "فا", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Silver)
