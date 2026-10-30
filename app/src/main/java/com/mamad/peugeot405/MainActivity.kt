@@ -170,7 +170,8 @@ fun MenuLayer(
             Header(vm, onConnect, onRemote)
             when (vm.tab) {
                 0 -> ControlScreen(vm)
-                1 -> FactoryScreen(vm, onExit = { vm.selectTab(0) })
+                1 -> LightsScreen(vm)
+                2 -> MenuScreen(vm, onExit = { vm.selectTab(0) })
                 else -> SettingsScreen(vm)
             }
         }
@@ -192,10 +193,13 @@ fun FloatingNav(tab: Int, onTab: (Int) -> Unit) {
         NavItem(tab == 0, S.navControl, Cyan, Modifier.weight(1f), { onTab(0) }) { tint ->
             Icon(Icons.Default.Home, null, tint = tint)
         }
-        NavItem(tab == 1, S.navFactory, Gold, Modifier.weight(1f), { onTab(1) }) { tint ->
+        NavItem(tab == 1, S.navLights, Color(0xFFBFE8FF), Modifier.weight(1f), { onTab(1) }) { tint ->
+            Canvas(Modifier.size(24.dp)) { drawBulbIcon(tint) }
+        }
+        NavItem(tab == 2, S.navMenu, Gold, Modifier.weight(1f), { onTab(2) }) { tint ->
             Canvas(Modifier.size(24.dp)) { drawGearIcon(tint) }
         }
-        NavItem(tab == 2, S.navCommands, Violet, Modifier.weight(1f), { onTab(2) }) { tint ->
+        NavItem(tab == 3, S.navCommands, Violet, Modifier.weight(1f), { onTab(3) }) { tint ->
             Icon(Icons.Default.Settings, null, tint = tint)
         }
     }
@@ -220,7 +224,16 @@ private fun NavItem(
     }
 }
 
-// آیکن چرخ‌دنده (برای تب کارخانه)
+// آیکن لامپ (برای تب چراغ‌ها)
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBulbIcon(color: Color) {
+    val w = size.width
+    val h = size.height
+    drawCircle(color, w * 0.28f, Offset(w / 2f, h * 0.40f), style = Stroke(w * 0.09f))
+    drawLine(color, Offset(w * 0.38f, h * 0.80f), Offset(w * 0.62f, h * 0.80f), w * 0.09f, StrokeCap.Round)
+    drawLine(color, Offset(w * 0.42f, h * 0.93f), Offset(w * 0.58f, h * 0.93f), w * 0.09f, StrokeCap.Round)
+}
+
+// آیکن چرخ‌دنده (برای تب منو)
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGearIcon(color: Color) {
     val c = Offset(size.width / 2f, size.height / 2f)
     val r = size.minDimension * 0.30f

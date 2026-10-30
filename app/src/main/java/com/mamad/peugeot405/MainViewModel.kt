@@ -45,11 +45,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // درصد باتری ماکت (فقط وقتی ESP عدد بفرستد؛ در کد ماکت ENABLE_BATTERY = 1 باشد)
     var battery by mutableStateOf<Int?>(null); private set
 
-    // تب فعلی منو: 0 کنترل ، 1 کارخانه ، 2 فرمان‌ها
+    // تب فعلی منو: 0 کنترل ، 1 چراغ‌ها ، 2 منو (حالت کارخانه) ، 3 فرمان‌ها
     var tab by mutableStateOf(0); private set
     // true = فرمان «ورود به حالت کارخانه» برای ماکت فرستاده شده و هنوز خارج نشده‌ایم
     var factoryActive by mutableStateOf(false); private set
     var showroomOn by mutableStateOf(false); private set
+
+    // وضعیت ماکت که با #GET می‌خوانیم (کلیدها: rf rb xf xb mf mb pf pb lk fa sh mo od lt tm fx bo bp bv bl lo cr ca bs bc v)
+    var info by mutableStateOf<Map<String, Int>>(emptyMap()); private set
+
+    // چراغ‌ها (هم با فشردن دکمه‌ها عوض می‌شوند هم از #GET هماهنگ می‌شوند)
+    var lightSmall by mutableStateOf(false); private set
+    var lightHigh by mutableStateOf(false); private set
+    var lightRear by mutableStateOf(false); private set
+    var turnMode by mutableStateOf(0); private set     // 0 خاموش 1 راست 2 چپ 3 فلاشر 4 نوبتی 5 افکت
+    var lightFx by mutableStateOf(0); private set
 
     private var factoryScreen = false     // الان تب کارخانه باز است؟
     private var foreground = true         // برنامه جلوی چشم کاربر است؟
@@ -84,6 +94,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         battery = null
         factoryActive = false
         showroomOn = false
+        info = emptyMap()
         setStatus(why)
     }
 
@@ -152,6 +163,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         bt.disconnect()
         connected = false
         battery = null
+        info = emptyMap()
         factoryActive = false
         showroomOn = false
         setStatus(St.IDLE)
@@ -161,13 +173,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun startReader() {
         readJob?.cancel()
         readJob = viewModelScope.launch {
-            bt.lines().collect { line ->
-                if (line.startsWith("BAT:")) {
-                    line.substring(4).trim().toIntOrNull()?.let { battery = it.coerceIn(0, 100) }
-                }
-            }
+            bt.lines().collect { line -> parseLine(line) }
             // جریان تمام شد = اتصال قطع شده (مثلا ماژول خاموش شد)
             if (connected) lostConnection(St.IDLE)
+        }
+    }
+
+    private fun parseLine(line: String) {
+        if (line.startsWith("BAT:")) {
+            val v = line.substring(4).trim().toIntOrNull()
+            battery = if (v == null || v < 0) null else v.coerceIn(0, 100)
+        } else if (line.length > 3 && line[0] == 'I' && line[2] == ':') {
+            val m = HashMap(info)
+            for (part in line.substring(3).split(';')) {
+                val kv = part.split('=')
+                if (kv.size == 2) kv[1].trim().toIntOrNull()?.let { m[kv[0].trim()] = it }
+            }
+            info = m
+            if (line[1] == '2') {                           // وضعیت چراغ‌ها از ماکت
+                val lt = m["lt"] ?: 0
+                lightSmall = (lt and 1) != 0
+                lightHigh = (lt and 2) != 0
+                lightRear = (lt and 4) != 0
+                turnMode = m["tm"] ?: 0
+                lightFx = m["fx"] ?: 0
+            }
+            if (line[1] == '3') {                           // باتری
+                battery = if ((m["bo"] ?: 0) == 1) (m["bp"] ?: 0).coerceIn(0, 100) else null
+            }
         }
     }
 
@@ -241,7 +274,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun selectTab(i: Int) {
         tab = i
-        factoryScreen = (i == 1)
+        factoryScreen = (i == 2)
         syncFactory()
     }
 
@@ -257,6 +290,116 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (want) showroomOn = false           // ماکت موقع ورود به کارخانه نمایشگاهی را می‌بندد
         if (connected) outbox.trySend(if (want) factoryOnCmd() else factoryOffCmd())
     }
+
+    // ---------------- فرمان‌های خطی منو (با # شروع و با Enter تمام می‌شوند) ----------------
+    fun sendLine(cmd: String) = send("#" + cmd + "\n")
+
+    fun requestInfo() {
+        if (connected) outbox.trySend("#GET\n")
+    }
+
+    // ---------------- چراغ‌ها ----------------
+    fun setSmall(on: Boolean) { send(if (on) "3" else "4"); if (connected) lightSmall = on }
+    fun setHigh(on: Boolean) { send(if (on) "5" else "6"); if (connected) lightHigh = on }
+    fun setRear(on: Boolean) { send(if (on) "9" else "a"); if (connected) lightRear = on }
+
+    // راهنماها: دوباره زدنِ همان دکمه خاموشش می‌کند. 1 راست ، 2 چپ ، 3 فلاشر ، 4 نوبتی
+    fun toggleTurn(mode: Int) {
+        val off = (turnMode == mode)
+        val ch = when (mode) {
+            1 -> if (off) "f" else "e"
+            2 -> if (off) "h" else "g"
+            3 -> if (off) "8" else "7"
+            else -> if (off) "j" else "i"
+        }
+        send(ch)
+        if (connected) turnMode = if (off) 0 else mode
+    }
+
+    fun toggleFx(fx: Int) {
+        if (turnMode == 5 && lightFx == fx) {
+            send("p")
+            if (connected) turnMode = 0
+        } else {
+            sendLine("LFX:$fx")
+            if (connected) { turnMode = 5; lightFx = fx }
+        }
+    }
+
+    fun lightsOff() {
+        sendLine("LOFF")
+        if (connected) { lightSmall = false; lightHigh = false; lightRear = false; turnMode = 0 }
+    }
+
+    // ---------------- منوی ماکت ----------------
+    private var lastTestAt = 0L
+
+    // وقتی اسلایدر را می‌کشی: سروو همزمان می‌رود (هر ۷۰ میلی‌ثانیه یک بار)
+    fun testServo(front: Boolean, angle: Int, force: Boolean = false) {
+        val now = SystemClock.uptimeMillis()
+        if (!force && now - lastTestAt < 70) return
+        lastTestAt = now
+        sendLine((if (front) "TF:" else "TB:") + angle)
+    }
+
+    fun releaseServos() = sendLine("TX")
+
+    fun saveServos(rf: Int, rb: Int, xf: Int, xb: Int, mf: Int, mb: Int) {
+        viewModelScope.launch {
+            for ((k, v) in listOf("rf" to rf, "rb" to rb, "xf" to xf, "xb" to xb, "mf" to mf, "mb" to mb)) {
+                sendLine("SET:$k=$v")
+                delay(120)
+            }
+            sendLine("SAVE")
+            delay(250)
+            requestInfo()
+        }
+    }
+
+    fun saveBattery(lo: Int, cr: Int, ca: Int) {
+        viewModelScope.launch {
+            sendLine("SET:cr=$cr")
+            delay(120)
+            sendLine("SET:lo=$lo")
+            delay(120)
+            sendLine("SET:ca=$ca")
+            delay(120)
+            sendLine("SAVE")
+            delay(250)
+            requestInfo()
+        }
+    }
+
+    fun resetCarDefaults() {
+        viewModelScope.launch {
+            sendLine("DEFAULTS")
+            delay(400)
+            requestInfo()
+        }
+    }
+
+    fun restartCar() = sendLine("RESET")
+
+    fun setBatteryEnabled(on: Boolean) {
+        viewModelScope.launch {
+            sendLine("BATON:" + (if (on) 1 else 0))
+            delay(300)
+            requestInfo()
+        }
+    }
+
+    fun simBattery(pct: Int) {
+        viewModelScope.launch {
+            sendLine("BATSIM:$pct")
+            delay(500)
+            requestInfo()
+        }
+    }
+
+    fun previewEyes(on: Boolean) {
+        if (connected) outbox.trySend("#PV:" + (if (on) 1 else 0) + "\n")
+    }
+    fun preview(kind: String, id: Int) = sendLine("$kind:$id")
 
     // ---------------- حالت نمایشگاهی ----------------
     fun toggleShowroom() {

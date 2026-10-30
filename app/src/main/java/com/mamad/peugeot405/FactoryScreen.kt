@@ -48,12 +48,10 @@ import kotlin.math.sin
 private val Ink = Color(0xFFE6F3FF)
 
 /**
- * بخش «کارخانه»: وقتی واردش می‌شوی ماکت کف‌خواب می‌شود و همین صحنه‌ی کارخانه روی نمایشگرش می‌آید.
- * (ورود/خروج فرمان Y و V را MainViewModel می‌فرستد)
+ * پیش‌نمایش نمایشگر OLED ماکت در حالت کارخانه (همان صحنه‌ای که روی ماکت پخش می‌شود).
  */
 @Composable
-fun FactoryScreen(vm: MainViewModel, onExit: () -> Unit) {
-    val S = LocalStrings.current
+fun FactoryPreview(modifier: Modifier = Modifier) {
     var now by remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) {
         val t0 = withFrameNanos { it }
@@ -62,44 +60,16 @@ fun FactoryScreen(vm: MainViewModel, onExit: () -> Unit) {
         }
     }
     val typed by remember { derivedStateOf { (((now - 1700L) / 70L).toInt()).coerceIn(0, 12) } }
-
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+    val shape = RoundedCornerShape(24.dp)
+    Box(
+        modifier.fillMaxWidth().aspectRatio(2f).clip(shape).background(Color.Black)
+            .border(1.dp, Cyan.copy(alpha = 0.45f), shape)
     ) {
-        // پیش‌نمایش نمایشگر OLED ماکت
-        val shape = RoundedCornerShape(24.dp)
-        Box(
-            Modifier.fillMaxWidth().aspectRatio(2f).clip(shape).background(Color.Black)
-                .border(1.dp, Cyan.copy(alpha = 0.45f), shape)
-        ) {
-            Canvas(Modifier.fillMaxSize()) { drawFactoryScene(now) }
-            Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp)) {
-                Text(
-                    "FACTORY MODE".take(typed), color = Ink, fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
-                )
-            }
-        }
-
-        CardBox(Cyan, active = vm.factoryActive) {
-            CardTitle(S.facTitle, "FACTORY", Cyan)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.size(10.dp).clip(CircleShape)
-                        .background(if (vm.factoryActive) Ok else Steel)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    if (vm.factoryActive) S.facActive else S.facInactive,
-                    color = if (vm.factoryActive) Ok else Steel, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
-                )
-            }
-            Text(S.facDesc, color = Steel, fontSize = 12.sp, lineHeight = 18.sp)
-            if (!vm.connected) Text(S.facNeedConnect, color = Gold, fontSize = 12.sp)
-            PillButton(
-                label = S.facExit, accent = Cyan, filled = true, enabled = true,
-                modifier = Modifier.fillMaxWidth(), height = 52.dp, onClick = onExit
+        Canvas(Modifier.fillMaxSize()) { drawFactoryScene(now) }
+        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp)) {
+            Text(
+                "FACTORY MODE".take(typed), color = Ink, fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
             )
         }
     }

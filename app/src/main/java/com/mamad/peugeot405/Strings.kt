@@ -101,6 +101,79 @@ abstract class Strings {
     abstract val cancel: String
     abstract fun sentCommand(c: String): String
 
+    // ---- v2.1: چراغ‌ها و منوی ماکت ----
+    abstract val navLights: String
+    abstract val navMenu: String
+    abstract val lightsTitle: String
+    abstract val lightsSteady: String
+    abstract val lSmall: String
+    abstract val lHigh: String
+    abstract val lRear: String
+    abstract val lTurn: String
+    abstract val tLeft: String
+    abstract val tRight: String
+    abstract val tHazard: String
+    abstract val tAlt: String
+    abstract val lShows: String
+    abstract val allOff: String
+    abstract val menuTitle: String
+    abstract val menuSub: String
+    abstract val mSuspension: String
+    abstract val mEffects: String
+    abstract val mBattery: String
+    abstract val mSystem: String
+    abstract val mBack: String
+    abstract val sRest: String
+    abstract val sMid: String
+    abstract val sMax: String
+    abstract val sSave: String
+    abstract val sDefaults: String
+    abstract val sRelease: String
+    abstract val sHint: String
+    abstract val sWaiting: String
+    abstract val refresh: String
+    abstract val saved: String
+    abstract val eEyes: String
+    abstract val eReact: String
+    abstract val eScenes: String
+    abstract val eTexts: String
+    abstract val eLive: String
+    abstract val eNote: String
+    abstract val bEnable: String
+    abstract val bEnableHint: String
+    abstract val bCharge: String
+    abstract val bVoltage: String
+    abstract val bStateLabel: String
+    abstract val lvFull: String
+    abstract val lvGood: String
+    abstract val lvMid: String
+    abstract val lvLow: String
+    abstract val lvCrit: String
+    abstract val bLow: String
+    abstract val bCrit: String
+    abstract val bCal: String
+    abstract val bSim: String
+    abstract val bReal: String
+    abstract val bOffText: String
+    abstract val bNoFw: String
+    abstract val sysFirmware: String
+    abstract val sysLocked: String
+    abstract val sysMode: String
+    abstract val sysDisplay: String
+    abstract val sysMood: String
+    abstract val yes: String
+    abstract val no: String
+    abstract val okText: String
+    abstract val problem: String
+    abstract val moodCalm: String
+    abstract val moodHappy: String
+    abstract val moodAnnoyed: String
+    abstract val modeNormal: String
+    abstract val modeFactory: String
+    abstract val modeShow: String
+    abstract val sysRestart: String
+    abstract val sysReset: String
+
     // ---------- توابع مشترک ----------
     fun status(t: St, arg: String): String = when (t) {
         St.IDLE -> stIdle
@@ -250,6 +323,78 @@ object FaStrings : Strings() {
     override val save = "ذخیره"
     override val cancel = "لغو"
     override fun sentCommand(c: String) = "فرمان ارسالی: $c"
+
+    override val navLights = "چراغ‌ها"
+    override val navMenu = "منو"
+    override val lightsTitle = "چراغ‌های ماکت"
+    override val lightsSteady = "چراغ‌های ثابت"
+    override val lSmall = "جلو کوچک"
+    override val lHigh = "نور بالا"
+    override val lRear = "عقب"
+    override val lTurn = "راهنما"
+    override val tLeft = "چپ"
+    override val tRight = "راست"
+    override val tHazard = "فلاشر"
+    override val tAlt = "نوبتی"
+    override val lShows = "افکت‌های چراغ"
+    override val allOff = "خاموش کردن همه"
+    override val menuTitle = "منوی ماکت"
+    override val menuSub = "حالت کارخانه فعال است؛ از اینجا همه‌چیز ماکت را تنظیم کن"
+    override val mSuspension = "تعلیق و سرووها"
+    override val mEffects = "چشم‌ها و افکت‌ها"
+    override val mBattery = "باتری"
+    override val mSystem = "سیستم"
+    override val mBack = "بازگشت"
+    override val sRest = "کف (پایین‌ترین)"
+    override val sMid = "ارتفاع متوسط"
+    override val sMax = "سقف (بالاترین)"
+    override val sSave = "ذخیره در ماکت"
+    override val sDefaults = "برگشت به پیش‌فرض"
+    override val sRelease = "برگشت به کف"
+    override val sHint = "اسلایدر را آرام بکش؛ سروو همزمان حرکت می‌کند. بعد «ذخیره» را بزن. فقط زاویه‌هایی را بگذار که مکانیک ماکت تحمل می‌کند."
+    override val sWaiting = "در انتظار اطلاعات ماکت..."
+    override val refresh = "به‌روزرسانی"
+    override val saved = "ذخیره شد"
+    override val eEyes = "حالت‌های چشم"
+    override val eReact = "واکنش‌های کوچک"
+    override val eScenes = "صحنه‌ها"
+    override val eTexts = "متن‌ها"
+    override val eLive = "روی نمایشگر ماکت زنده نشان داده می‌شود"
+    override val eNote = "متن‌ها تصویر هستند؛ از اینجا فقط می‌توانی نمایششان بدهی. برای عوض کردن خود جمله‌ها باید با اسکریپت پایتون تصویر جدید ساخت."
+    override val bEnable = "نظارت بر باتری"
+    override val bEnableHint = "اول مدار تقسیم ولتاژ را به A0 وصل کن، بعد روشن کن."
+    override val bCharge = "شارژ"
+    override val bVoltage = "ولتاژ پک"
+    override val bStateLabel = "وضعیت"
+    override val lvFull = "پر"
+    override val lvGood = "خوب"
+    override val lvMid = "متوسط"
+    override val lvLow = "کم (الارم)"
+    override val lvCrit = "بحرانی"
+    override val bLow = "هشدار در"
+    override val bCrit = "بحرانی در"
+    override val bCal = "کالیبراسیون ولتاژ"
+    override val bSim = "شبیه‌سازی درصد (برای تست)"
+    override val bReal = "واقعی"
+    override val bOffText = "نظارت خاموش است"
+    override val bNoFw = "کد این ماکت بدون بخش باتری ساخته شده (ENABLE_BATTERY = 0)."
+    override val sysFirmware = "نسخه‌ی کد ماکت"
+    override val sysLocked = "قفل"
+    override val sysMode = "حالت"
+    override val sysDisplay = "نمایشگر"
+    override val sysMood = "حال روحی"
+    override val yes = "بله"
+    override val no = "خیر"
+    override val okText = "سالم"
+    override val problem = "مشکل"
+    override val moodCalm = "آروم"
+    override val moodHappy = "سرخوش"
+    override val moodAnnoyed = "دلخور"
+    override val modeNormal = "عادی"
+    override val modeFactory = "کارخانه"
+    override val modeShow = "نمایشگاهی"
+    override val sysRestart = "ری‌استارت ماکت"
+    override val sysReset = "برگشت همه‌ی تنظیمات به پیش‌فرض"
 }
 
 object EnStrings : Strings() {
@@ -339,6 +484,78 @@ object EnStrings : Strings() {
     override val save = "Save"
     override val cancel = "Cancel"
     override fun sentCommand(c: String) = "Sends: $c"
+
+    override val navLights = "Lights"
+    override val navMenu = "Menu"
+    override val lightsTitle = "Car lights"
+    override val lightsSteady = "Steady lights"
+    override val lSmall = "Parking"
+    override val lHigh = "High beam"
+    override val lRear = "Rear"
+    override val lTurn = "Turn signals"
+    override val tLeft = "Left"
+    override val tRight = "Right"
+    override val tHazard = "Hazard"
+    override val tAlt = "Alternate"
+    override val lShows = "Light shows"
+    override val allOff = "All off"
+    override val menuTitle = "Car menu"
+    override val menuSub = "Factory mode is on; configure everything about the car here"
+    override val mSuspension = "Suspension & servos"
+    override val mEffects = "Eyes & effects"
+    override val mBattery = "Battery"
+    override val mSystem = "System"
+    override val mBack = "Back"
+    override val sRest = "Floor (lowest)"
+    override val sMid = "Mid height"
+    override val sMax = "Ceiling (highest)"
+    override val sSave = "Save to car"
+    override val sDefaults = "Reset to defaults"
+    override val sRelease = "Return to floor"
+    override val sHint = "Drag slowly; the servo follows live. Then tap Save. Only use angles your mechanics can take."
+    override val sWaiting = "Waiting for car data..."
+    override val refresh = "Refresh"
+    override val saved = "Saved"
+    override val eEyes = "Eye moods"
+    override val eReact = "Reactions"
+    override val eScenes = "Scenes"
+    override val eTexts = "Texts"
+    override val eLive = "Shown live on the car display"
+    override val eNote = "Texts are bitmaps; here you can only play them. To change the sentences themselves, generate new bitmaps with the Python script."
+    override val bEnable = "Battery monitor"
+    override val bEnableHint = "Wire the voltage divider to A0 first, then turn it on."
+    override val bCharge = "Charge"
+    override val bVoltage = "Pack voltage"
+    override val bStateLabel = "State"
+    override val lvFull = "Full"
+    override val lvGood = "Good"
+    override val lvMid = "Medium"
+    override val lvLow = "Low (alarm)"
+    override val lvCrit = "Critical"
+    override val bLow = "Alert at"
+    override val bCrit = "Critical at"
+    override val bCal = "Voltage calibration"
+    override val bSim = "Simulate level (for testing)"
+    override val bReal = "Real"
+    override val bOffText = "Monitoring is off"
+    override val bNoFw = "This car firmware was built without battery support (ENABLE_BATTERY = 0)."
+    override val sysFirmware = "Firmware"
+    override val sysLocked = "Locked"
+    override val sysMode = "Mode"
+    override val sysDisplay = "Display"
+    override val sysMood = "Mood"
+    override val yes = "Yes"
+    override val no = "No"
+    override val okText = "OK"
+    override val problem = "Problem"
+    override val moodCalm = "Calm"
+    override val moodHappy = "Happy"
+    override val moodAnnoyed = "Annoyed"
+    override val modeNormal = "Normal"
+    override val modeFactory = "Factory"
+    override val modeShow = "Showroom"
+    override val sysRestart = "Restart car"
+    override val sysReset = "Reset all settings"
 }
 
 val LocalStrings = staticCompositionLocalOf<Strings> { FaStrings }
