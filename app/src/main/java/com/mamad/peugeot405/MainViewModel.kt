@@ -2,7 +2,6 @@ package com.mamad.peugeot405
 
 import android.annotation.SuppressLint
 import android.app.Application
-import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
@@ -18,25 +17,21 @@ import kotlinx.coroutines.launch
 @SuppressLint("MissingPermission")
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val store = CommandStore(app)
-    private val bt = BluetoothClient(app)
-    private val prefs = app.getSharedPreferences("bt", Context.MODE_PRIVATE)
+    private val bt = WifiClient(app)
     private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     // شبیه‌ساز کد آردوینو؛ نوار ارتفاع و کج شدن آرم از روی آن می‌آید
     val sim = SketchSim()
 
     var commands by mutableStateOf(store.load()); private set
-    var devices by mutableStateOf<List<BluetoothDevice>>(emptyList()); private set
     var connected by mutableStateOf(false); private set
     var connecting by mutableStateOf(false); private set
     // وضعیت قفل ماکت از روی آخرین دکمه‌ی ریموت (null = هنوز چیزی نفرستاده‌ایم)
     var locked by mutableStateOf<Boolean?>(null); private set
     var statusType by mutableStateOf(St.IDLE); private set
     var statusArg by mutableStateOf(""); private set
-    var btSupported by mutableStateOf(true); private set
-    var btPermission by mutableStateOf(true); private set
-    var btEnabled by mutableStateOf(true); private set
-    var lastAddress by mutableStateOf(prefs.getString("last", "") ?: ""); private set
+    // گوشی الان به یک شبکه‌ی وای‌فای وصل است؟ (باید به وای‌فای ماکت وصل باشد)
+    var wifiReady by mutableStateOf(false); private set
 
     // زبان برنامه: "fa" یا "en"
     var lang by mutableStateOf(settings.getString("lang", "fa") ?: "fa"); private set
@@ -80,7 +75,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 delay(10)
             }
         }
-        refreshDevices()
+        // هر ۴ ثانیه یک PING؛ ماکت PONG برمی‌گرداند و اگر اتصال مرده باشد سریع می‌فهمیم
+        viewModelScope.launch {
+            while (true) {
+                delay(4000)
+                if (connected) outbox.trySend("#PING\n")
+            }
+        }
+        refreshNetwork()
     }
 
     private fun setStatus(t: St, arg: String = "") {
@@ -104,35 +106,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         settings.edit().putString("lang", lang).apply()
     }
 
-    // ---------------- اتصال ----------------
-    fun refreshDevices() {
-        btSupported = bt.isSupported
-        btPermission = bt.hasPermission()
-        btEnabled = bt.isEnabled
-        devices = bt.pairedDevices().sortedByDescending { it.address == lastAddress }
+    // ---------------- اتصال (وای‌فای) ----------------
+    fun refreshNetwork() {
+        wifiReady = bt.hasWifi
     }
 
     private fun failStatus(e: Throwable) {
         val m = e.message ?: e.javaClass.simpleName
         when {
-            e is SecurityException -> setStatus(St.FAIL_PERM)
-            m.contains("read failed", true) || m.contains("timeout", true) || m.contains("closed", true) ->
-                setStatus(St.FAIL_NORESP, m)
+            m == "NO_WIFI" -> setStatus(St.FAIL_NOWIFI)
+            e is java.net.SocketTimeoutException || e is java.net.ConnectException ||
+                e is java.net.NoRouteToHostException -> setStatus(St.FAIL_NOCAR)
             else -> setStatus(St.FAIL_RAW, m)
         }
     }
 
-    fun connect(d: BluetoothDevice) = viewModelScope.launch {
+    fun connect() = viewModelScope.launch {
         if (connecting) return@launch
         connecting = true
         setStatus(St.CONNECTING)
-        bt.connect(d)
+        bt.connect()
             .onSuccess {
                 connected = true
                 locked = null
-                setStatus(St.CONNECTED, d.name ?: d.address)
-                lastAddress = d.address
-                prefs.edit().putString("last", d.address).apply()
+                wifiReady = true
+                setStatus(St.CONNECTED, WifiClient.NAME)
                 startReader()
                 // مطمئن شو ماکت از جلسه‌ی قبلی تو حالت کارخانه گیر نکرده باشد
                 factoryActive = factoryScreen && foreground
@@ -140,17 +138,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             .onFailure {
                 connected = false
+                refreshNetwork()
                 failStatus(it)
             }
         connecting = false
     }
 
-    // اتصال سریع به آخرین دستگاه (یا تنها دستگاه جفت‌شده). اگر نشد false برمی‌گرداند تا لیست نمایش داده شود
+    // اتصال سریع: اگر گوشی به وای‌فای وصل است همان لحظه وصل می‌شود؛ وگرنه false تا راهنمای اتصال نشان داده شود
     fun connectQuick(): Boolean {
-        refreshDevices()
-        if (!btSupported || !btPermission || !btEnabled) return false
-        val d = devices.firstOrNull { it.address == lastAddress } ?: devices.singleOrNull() ?: return false
-        connect(d)
+        refreshNetwork()
+        if (!wifiReady) return false
+        connect()
         return true
     }
 

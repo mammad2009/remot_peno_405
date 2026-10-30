@@ -1,15 +1,11 @@
 package com.mamad.peugeot405
 
-import android.Manifest
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -52,20 +48,14 @@ private val Grey = Color(0xFF8B93A5)
 
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
-    private val permLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { vm.refreshDevices() }
-    private val enableLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.refreshDevices() }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestBtPermission()
         setContent {
             // زبان فارسی = راست‌به‌چپ ، انگلیسی = چپ‌به‌راست
             val dir = if (vm.lang == "en") LayoutDirection.Ltr else LayoutDirection.Rtl
             CompositionLocalProvider(LocalLayoutDirection provides dir, LocalStrings provides vm.strings) {
                 MaterialTheme(colorScheme = darkColorScheme(primary = Cyan, background = Bg, surface = Panel)) {
-                    AppRoot(vm, this@MainActivity::requestBtPermission, this@MainActivity::enableBluetooth, this@MainActivity::openAppSettings)
+                    AppRoot(vm, this@MainActivity::openWifiSettings)
                 }
             }
         }
@@ -73,7 +63,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        vm.refreshDevices()
+        vm.refreshNetwork()
     }
 
     // وقتی برنامه از جلوی چشم رفت (یا بسته شد) ماکت از حالت کارخانه بیرون می‌آید؛ برگشتی دوباره وارد می‌شود
@@ -87,21 +77,8 @@ class MainActivity : ComponentActivity() {
         vm.setForeground(false)
     }
 
-    private fun requestBtPermission() {
-        if (Build.VERSION.SDK_INT >= 31) permLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
-    }
-
-    private fun enableBluetooth() {
-        enableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
-    }
-
-    private fun openAppSettings() {
-        startActivity(
-            Intent(
-                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                Uri.fromParts("package", packageName, null)
-            )
-        )
+    private fun openWifiSettings() {
+        startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS))
     }
 }
 
@@ -110,9 +87,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppRoot(
     vm: MainViewModel,
-    onRequestPermission: () -> Unit,
-    onEnableBluetooth: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenWifi: () -> Unit
 ) {
     var phase by rememberSaveable { mutableStateOf(if (vm.connected) 2 else -1) }
     var showConnect by remember { mutableStateOf(false) }
@@ -131,7 +106,7 @@ fun AppRoot(
         if (phase == 2 || transition) {
             MenuLayer(
                 vm,
-                { vm.refreshDevices(); showConnect = true },
+                { vm.refreshNetwork(); showConnect = true },
                 { showRemote = true }
             )
         }
@@ -139,7 +114,7 @@ fun AppRoot(
             SplashScreen(onFinished = { phase = 0 })
         }
         if (phase == 0) {
-            ConnectScreen(vm, onPick = { vm.refreshDevices(); showConnect = true }, onSkip = { phase = 2 })
+            ConnectScreen(vm, onPick = { vm.refreshNetwork(); showConnect = true }, onSkip = { phase = 2 })
         }
         if (phase == 1) {
             RemoteIntro(vm, onLeaving = { transition = true }, onDone = { phase = 2; transition = false })
@@ -147,7 +122,7 @@ fun AppRoot(
         RemoteOverlay(vm, showRemote) { showRemote = false }
     }
     if (showConnect) {
-        ConnectDialog(vm, { showConnect = false }, onRequestPermission, onEnableBluetooth, onOpenSettings)
+        ConnectDialog(vm, { showConnect = false }, onOpenWifi)
     }
 }
 
@@ -251,16 +226,20 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGearIcon(color:
     }
 }
 
-@SuppressLint("MissingPermission")
 @Composable
 fun ConnectDialog(
     vm: MainViewModel,
     onDismiss: () -> Unit,
-    onRequestPermission: () -> Unit,
-    onEnableBluetooth: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenWifi: () -> Unit
 ) {
     val S = LocalStrings.current
+    // نشانگر وضعیت وای‌فای گوشی زنده به‌روز می‌شود (وقتی از تنظیمات برمی‌گردی)
+    LaunchedEffect(Unit) {
+        while (true) {
+            vm.refreshNetwork()
+            delay(1200)
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text(S.close) } },
@@ -269,30 +248,18 @@ fun ConnectDialog(
         },
         title = { Text(S.dlgTitle) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                when {
-                    !vm.btSupported -> Text(S.noBluetooth)
-                    !vm.btPermission -> {
-                        Text(S.needPermission)
-                        Button(onClick = onRequestPermission) { Text(S.grantPermission) }
-                        TextButton(onClick = onOpenSettings) { Text(S.openAppSettings) }
-                    }
-                    !vm.btEnabled -> {
-                        Text(S.btOff)
-                        Button(onClick = onEnableBluetooth) { Text(S.turnOnBluetooth) }
-                    }
-                    vm.devices.isEmpty() -> Text(S.noPaired)
-                    else -> {
-                        LazyColumn(Modifier.heightIn(max = 260.dp)) {
-                            items(vm.devices) { d ->
-                                TextButton(onClick = { vm.connect(d); onDismiss() }) {
-                                    Text("${d.name ?: S.unnamed}  (${d.address})")
-                                }
-                            }
-                        }
-                        Text(S.connectHint, fontSize = 11.sp, color = Grey)
-                    }
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(S.wifiSteps, fontSize = 13.sp)
+                Text(
+                    (if (vm.wifiReady) "\uD83D\uDFE2 " + S.wifiOn else "\uD83D\uDD34 " + S.wifiOffTxt),
+                    fontSize = 13.sp, color = if (vm.wifiReady) Ok else Danger
+                )
+                Button(onClick = onOpenWifi) { Text(S.openWifi) }
+                Button(
+                    onClick = { vm.connect(); onDismiss() },
+                    enabled = !vm.connecting && !vm.connected
+                ) { Text(S.connectNow) }
+                Text(S.connectHint, fontSize = 11.sp, color = Grey)
                 Text(S.status(vm.statusType, vm.statusArg), fontSize = 11.sp, color = Grey)
             }
         }

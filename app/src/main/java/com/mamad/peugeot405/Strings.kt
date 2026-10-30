@@ -3,7 +3,7 @@ package com.mamad.peugeot405
 import androidx.compose.runtime.staticCompositionLocalOf
 
 // وضعیت اتصال (متنش بر اساس زبان فعلی ساخته می‌شود)
-enum class St { IDLE, CONNECTING, CONNECTED, FAIL_PERM, FAIL_NORESP, FAIL_RAW, SEND_FAILED, NEED_CONNECT }
+enum class St { IDLE, CONNECTING, CONNECTED, FAIL_NOWIFI, FAIL_NOCAR, FAIL_RAW, SEND_FAILED, NEED_CONNECT }
 
 /**
  * همه‌ی متن‌های برنامه. دو زبان: فارسی (FaStrings) و انگلیسی (EnStrings).
@@ -27,23 +27,13 @@ abstract class Strings {
     abstract val stConnecting: String
     abstract val stSendFailed: String
     abstract val stNeedConnect: String
-    abstract val errPerm: String
     abstract fun stConnected(name: String): String
     abstract fun stFailed(reason: String): String
-    abstract fun errNoResponse(detail: String): String
 
     // ---- پنجره‌ی اتصال ----
     abstract val dlgTitle: String
     abstract val close: String
     abstract val disconnect: String
-    abstract val noBluetooth: String
-    abstract val needPermission: String
-    abstract val grantPermission: String
-    abstract val openAppSettings: String
-    abstract val btOff: String
-    abstract val turnOnBluetooth: String
-    abstract val noPaired: String
-    abstract val unnamed: String
     abstract val connectHint: String
 
     // ---- صفحه‌ی اتصال ----
@@ -178,13 +168,21 @@ abstract class Strings {
     abstract val copied: String
     abstract val sRam: String
 
+    abstract val errNoWifi: String
+    abstract val errNoCar: String
+    abstract val wifiSteps: String
+    abstract val openWifi: String
+    abstract val connectNow: String
+    abstract val wifiOn: String
+    abstract val wifiOffTxt: String
+
     // ---------- توابع مشترک ----------
     fun status(t: St, arg: String): String = when (t) {
         St.IDLE -> stIdle
         St.CONNECTING -> stConnecting
         St.CONNECTED -> stConnected(arg)
-        St.FAIL_PERM -> stFailed(errPerm)
-        St.FAIL_NORESP -> stFailed(errNoResponse(arg))
+        St.FAIL_NOWIFI -> stFailed(errNoWifi)
+        St.FAIL_NOCAR -> stFailed(errNoCar)
         St.FAIL_RAW -> stFailed(arg)
         St.SEND_FAILED -> stSendFailed
         St.NEED_CONNECT -> stNeedConnect
@@ -257,31 +255,19 @@ object FaStrings : Strings() {
     override val stConnecting = "در حال اتصال..."
     override val stSendFailed = "ارسال ناموفق بود، اتصال قطع شد"
     override val stNeedConnect = "اول به HC-05 وصل شو"
-    override val errPerm = "اجازه‌ی بلوتوث داده نشده"
     override fun stConnected(name: String) = "متصل به $name"
     override fun stFailed(reason: String) = "اتصال ناموفق: $reason"
-    override fun errNoResponse(detail: String) =
-        "HC-05 جواب نداد. روشن بودنش را چک کن و اینکه به گوشی دیگری وصل نباشد ($detail)"
 
-    override val dlgTitle = "اتصال به HC-05"
+    override val dlgTitle = "اتصال به وای‌فای ماکت"
     override val close = "بستن"
     override val disconnect = "قطع اتصال"
-    override val noBluetooth = "این گوشی بلوتوث ندارد."
-    override val needPermission = "برنامه اجازه‌ی «دستگاه‌های نزدیک» (بلوتوث) را ندارد."
-    override val grantPermission = "دادن اجازه"
-    override val openAppSettings = "باز کردن تنظیمات برنامه"
-    override val btOff = "بلوتوث گوشی خاموش است."
-    override val turnOnBluetooth = "روشن کردن بلوتوث"
-    override val noPaired =
-        "دستگاه جفت‌شده‌ای نیست. اول از تنظیمات بلوتوث گوشی، HC-05 را جفت کن (رمز 1234 یا 0000) و برگرد."
-    override val unnamed = "بدون نام"
-    override val connectHint = "اگر وصل نشد: چراغ HC-05 باید تند چشمک بزند و به گوشی دیگری وصل نباشد."
+    override val connectHint = "اگر وصل نشد: ماکت روشن باشد و گوشی به شبکه‌ی Peugeot405 وصل باشد."
 
     override val cConnected = "متصل شد"
     override val cConnecting = "در حال اتصال..."
     override val cIdle = "اتصال به ماژول"
-    override val cSubIdle = "بلوتوث ماژول را روشن کن و دکمه را لمس کن"
-    override val pickDevice = "انتخاب دستگاه"
+    override val cSubIdle = "به وای‌فای ماکت (Peugeot405) وصل شو و دکمه را لمس کن"
+    override val pickDevice = "راهنمای اتصال"
     override val demoMode = "حالت آزمایشی"
 
     override val rLock = "قفل"
@@ -327,6 +313,14 @@ object FaStrings : Strings() {
     override val save = "ذخیره"
     override val cancel = "لغو"
     override fun sentCommand(c: String) = "فرمان ارسالی: $c"
+
+    override val errNoWifi = "گوشی به وای‌فای وصل نیست؛ اول در تنظیمات به شبکه‌ی Peugeot405 وصل شو"
+    override val errNoCar = "ماکت جواب نداد. روشن بودنش را چک کن و مطمئن شو به وای‌فای Peugeot405 وصلی"
+    override val wifiSteps = "۱) در تنظیمات وای‌فای گوشی به شبکه‌ی «Peugeot405» وصل شو (رمز پیش‌فرض: 12345678).\n۲) اگر اندروید گفت «اینترنت ندارد»، گزینه‌ی «وصل بمان» را بزن.\n۳) برگرد اینجا و «اتصال» را بزن."
+    override val openWifi = "باز کردن تنظیمات وای‌فای"
+    override val connectNow = "اتصال"
+    override val wifiOn = "گوشی به وای‌فای وصل است"
+    override val wifiOffTxt = "گوشی به وای‌فای وصل نیست"
 
     override val sCopy = "کپی عددها برای کد"
     override val copied = "کپی شد ✓"
@@ -421,32 +415,20 @@ object EnStrings : Strings() {
     override val stConnecting = "Connecting..."
     override val stSendFailed = "Send failed, connection lost"
     override val stNeedConnect = "Connect to the HC-05 first"
-    override val errPerm = "Bluetooth permission not granted"
     override fun stConnected(name: String) = "Connected to $name"
     override fun stFailed(reason: String) = "Connection failed: $reason"
-    override fun errNoResponse(detail: String) =
-        "The HC-05 did not respond. Check that it is powered and not connected to another phone ($detail)"
 
-    override val dlgTitle = "Connect to HC-05"
+    override val dlgTitle = "Connect to the car Wi-Fi"
     override val close = "Close"
     override val disconnect = "Disconnect"
-    override val noBluetooth = "This phone has no Bluetooth."
-    override val needPermission = "The app doesn't have the \u201CNearby devices\u201D (Bluetooth) permission."
-    override val grantPermission = "Grant permission"
-    override val openAppSettings = "Open app settings"
-    override val btOff = "Bluetooth is turned off."
-    override val turnOnBluetooth = "Turn on Bluetooth"
-    override val noPaired =
-        "No paired devices. Pair the HC-05 in your phone's Bluetooth settings first (PIN 1234 or 0000), then come back."
-    override val unnamed = "Unnamed"
     override val connectHint =
-        "If it fails: the HC-05 LED should blink fast and it must not be connected to another phone."
+        "If it fails: the car must be powered and the phone on the Peugeot405 network."
 
     override val cConnected = "Connected"
     override val cConnecting = "Connecting..."
     override val cIdle = "Connect to module"
-    override val cSubIdle = "Power on the module and tap the button"
-    override val pickDevice = "Choose device"
+    override val cSubIdle = "Join the car Wi-Fi (Peugeot405), then tap the button"
+    override val pickDevice = "Connection help"
     override val demoMode = "Demo mode"
 
     override val rLock = "Lock"
@@ -492,6 +474,14 @@ object EnStrings : Strings() {
     override val save = "Save"
     override val cancel = "Cancel"
     override fun sentCommand(c: String) = "Sends: $c"
+
+    override val errNoWifi = "The phone is not on Wi-Fi; join the Peugeot405 network in Wi-Fi settings first"
+    override val errNoCar = "The car did not answer. Check it is powered and that you are on the Peugeot405 Wi-Fi"
+    override val wifiSteps = "1) In your phone Wi-Fi settings join the \u201CPeugeot405\u201D network (default password: 12345678).\n2) If Android says \u201Cno internet\u201D, choose \u201CStay connected\u201D.\n3) Come back here and tap Connect."
+    override val openWifi = "Open Wi-Fi settings"
+    override val connectNow = "Connect"
+    override val wifiOn = "Phone is on Wi-Fi"
+    override val wifiOffTxt = "Phone is not on Wi-Fi"
 
     override val sCopy = "Copy values for code"
     override val copied = "Copied ✓"

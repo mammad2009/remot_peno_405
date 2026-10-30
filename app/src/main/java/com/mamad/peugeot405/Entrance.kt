@@ -74,16 +74,17 @@ import kotlinx.coroutines.launch
 
 // ======================= آیکن‌ها (رسم دستی، چون بسته‌ی آیکن کامل نداریم) =======================
 
-fun DrawScope.drawBluetooth(c: Offset, s: Float, color: Color, strokeW: Float) {
-    val p = Path().apply {
-        moveTo(c.x - 0.5f * s, c.y - 0.5f * s)
-        lineTo(c.x + 0.5f * s, c.y + 0.5f * s)
-        lineTo(c.x, c.y + s)
-        lineTo(c.x, c.y - s)
-        lineTo(c.x + 0.5f * s, c.y - 0.5f * s)
-        lineTo(c.x - 0.5f * s, c.y + 0.5f * s)
+// آیکن وای‌فای: سه کمان و یک نقطه
+fun DrawScope.drawWifi(c: Offset, s: Float, color: Color, strokeW: Float) {
+    val baseY = c.y + 0.125f * s + 0.55f * s
+    for (i in 1..3) {
+        val r = s * 0.45f * i
+        drawArc(
+            color, 225f, 90f, false, Offset(c.x - r, baseY - r), Size(r * 2f, r * 2f),
+            style = Stroke(width = strokeW, cap = StrokeCap.Round)
+        )
     }
-    drawPath(p, color, style = Stroke(width = strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawCircle(color, strokeW * 0.9f, Offset(c.x, baseY))
 }
 
 // قفل بسته یا باز (خطی، مثل آیکن روی ریموت)
@@ -218,7 +219,7 @@ fun ConnectScreen(vm: MainViewModel, onPick: () -> Unit, onSkip: () -> Unit) {
                     radius = r - 1.dp.toPx(), center = center, style = Stroke(2.dp.toPx())
                 )
                 drawCircle(Cyan.copy(alpha = 0.18f), r - 11.dp.toPx(), center, style = Stroke(1.dp.toPx()))
-                drawBluetooth(center, 24.dp.toPx(), Cyan, 3.dp.toPx())
+                drawWifi(center, 24.dp.toPx(), Cyan, 3.dp.toPx())
             }
         }
 
@@ -251,7 +252,7 @@ fun ConnectScreen(vm: MainViewModel, onPick: () -> Unit, onSkip: () -> Unit) {
         ) {
             Text(
                 S.pickDevice, color = Steel, fontSize = 12.sp,
-                modifier = Modifier.clickable { vm.refreshDevices(); onPick() }.padding(12.dp)
+                modifier = Modifier.clickable { vm.refreshNetwork(); onPick() }.padding(12.dp)
             )
             Text(
                 S.demoMode, color = Steel, fontSize = 12.sp,
