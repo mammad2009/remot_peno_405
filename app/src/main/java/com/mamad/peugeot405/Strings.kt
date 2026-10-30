@@ -174,6 +174,10 @@ abstract class Strings {
     abstract val sysRestart: String
     abstract val sysReset: String
 
+    abstract val sCopy: String
+    abstract val copied: String
+    abstract val sRam: String
+
     // ---------- توابع مشترک ----------
     fun status(t: St, arg: String): String = when (t) {
         St.IDLE -> stIdle
@@ -324,6 +328,10 @@ object FaStrings : Strings() {
     override val cancel = "لغو"
     override fun sentCommand(c: String) = "فرمان ارسالی: $c"
 
+    override val sCopy = "کپی عددها برای کد"
+    override val copied = "کپی شد ✓"
+    override val sRam = "تغییرات فقط تا خاموش شدن ماکت می‌مانند (چیزی ذخیره نمی‌شود). عدد دلخواه را با دکمه‌ی «کپی» برداشتی، در بالای کد ماکت بنویس."
+
     override val navLights = "چراغ‌ها"
     override val navMenu = "منو"
     override val lightsTitle = "چراغ‌های ماکت"
@@ -348,13 +356,13 @@ object FaStrings : Strings() {
     override val sRest = "کف (پایین‌ترین)"
     override val sMid = "ارتفاع متوسط"
     override val sMax = "سقف (بالاترین)"
-    override val sSave = "ذخیره در ماکت"
-    override val sDefaults = "برگشت به پیش‌فرض"
+    override val sSave = "اعمال روی ماکت"
+    override val sDefaults = "برگشت به عددهای کد"
     override val sRelease = "برگشت به کف"
-    override val sHint = "اسلایدر را آرام بکش؛ سروو همزمان حرکت می‌کند. بعد «ذخیره» را بزن. فقط زاویه‌هایی را بگذار که مکانیک ماکت تحمل می‌کند."
+    override val sHint = "اسلایدر را آرام بکش؛ سروو همزمان حرکت می‌کند. بعد «اعمال» را بزن. فقط زاویه‌هایی بگذار که مکانیک ماکت تحمل می‌کند."
     override val sWaiting = "در انتظار اطلاعات ماکت..."
     override val refresh = "به‌روزرسانی"
-    override val saved = "ذخیره شد"
+    override val saved = "اعمال شد"
     override val eEyes = "حالت‌های چشم"
     override val eReact = "واکنش‌های کوچک"
     override val eScenes = "صحنه‌ها"
@@ -362,7 +370,7 @@ object FaStrings : Strings() {
     override val eLive = "روی نمایشگر ماکت زنده نشان داده می‌شود"
     override val eNote = "متن‌ها تصویر هستند؛ از اینجا فقط می‌توانی نمایششان بدهی. برای عوض کردن خود جمله‌ها باید با اسکریپت پایتون تصویر جدید ساخت."
     override val bEnable = "نظارت بر باتری"
-    override val bEnableHint = "اول مدار تقسیم ولتاژ را به A0 وصل کن، بعد روشن کن."
+    override val bEnableHint = "اول مدار تقسیم ولتاژ را به A0 وصل کن، بعد روشن کن. (بعد از خاموش شدن ماکت دوباره خاموش می‌شود؛ برای همیشه BAT_START_ON را در کد 1 کن.)"
     override val bCharge = "شارژ"
     override val bVoltage = "ولتاژ پک"
     override val bStateLabel = "وضعیت"
@@ -394,7 +402,7 @@ object FaStrings : Strings() {
     override val modeFactory = "کارخانه"
     override val modeShow = "نمایشگاهی"
     override val sysRestart = "ری‌استارت ماکت"
-    override val sysReset = "برگشت همه‌ی تنظیمات به پیش‌فرض"
+    override val sysReset = "برگشت همه‌ی عددها به عددهای کد"
 }
 
 object EnStrings : Strings() {
@@ -485,6 +493,10 @@ object EnStrings : Strings() {
     override val cancel = "Cancel"
     override fun sentCommand(c: String) = "Sends: $c"
 
+    override val sCopy = "Copy values for code"
+    override val copied = "Copied ✓"
+    override val sRam = "Changes last only until the car powers off (nothing is stored). Copy the values you like and paste them at the top of the car code."
+
     override val navLights = "Lights"
     override val navMenu = "Menu"
     override val lightsTitle = "Car lights"
@@ -509,13 +521,13 @@ object EnStrings : Strings() {
     override val sRest = "Floor (lowest)"
     override val sMid = "Mid height"
     override val sMax = "Ceiling (highest)"
-    override val sSave = "Save to car"
-    override val sDefaults = "Reset to defaults"
+    override val sSave = "Apply to car"
+    override val sDefaults = "Back to code values"
     override val sRelease = "Return to floor"
-    override val sHint = "Drag slowly; the servo follows live. Then tap Save. Only use angles your mechanics can take."
+    override val sHint = "Drag slowly; the servo follows live. Then tap Apply. Only use angles your mechanics can take."
     override val sWaiting = "Waiting for car data..."
     override val refresh = "Refresh"
-    override val saved = "Saved"
+    override val saved = "Applied"
     override val eEyes = "Eye moods"
     override val eReact = "Reactions"
     override val eScenes = "Scenes"
@@ -523,7 +535,7 @@ object EnStrings : Strings() {
     override val eLive = "Shown live on the car display"
     override val eNote = "Texts are bitmaps; here you can only play them. To change the sentences themselves, generate new bitmaps with the Python script."
     override val bEnable = "Battery monitor"
-    override val bEnableHint = "Wire the voltage divider to A0 first, then turn it on."
+    override val bEnableHint = "Wire the voltage divider to A0 first, then turn it on. (It turns off again when the car powers down; set BAT_START_ON to 1 in the code to keep it.)"
     override val bCharge = "Charge"
     override val bVoltage = "Pack voltage"
     override val bStateLabel = "State"
@@ -555,7 +567,7 @@ object EnStrings : Strings() {
     override val modeFactory = "Factory"
     override val modeShow = "Showroom"
     override val sysRestart = "Restart car"
-    override val sysReset = "Reset all settings"
+    override val sysReset = "Reset all values to the code values"
 }
 
 val LocalStrings = staticCompositionLocalOf<Strings> { FaStrings }

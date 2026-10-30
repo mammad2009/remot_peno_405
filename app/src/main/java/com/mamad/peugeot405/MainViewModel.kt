@@ -344,28 +344,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun releaseServos() = sendLine("TX")
 
-    fun saveServos(rf: Int, rb: Int, xf: Int, xb: Int, mf: Int, mb: Int) {
+    // فقط روی ماکت اعمال میشه (RAM) ؛ چیزی ذخیره نمیشه
+    fun applyServos(rf: Int, rb: Int, xf: Int, xb: Int, mf: Int, mb: Int) {
         viewModelScope.launch {
             for ((k, v) in listOf("rf" to rf, "rb" to rb, "xf" to xf, "xb" to xb, "mf" to mf, "mb" to mb)) {
                 sendLine("SET:$k=$v")
                 delay(120)
             }
-            sendLine("SAVE")
-            delay(250)
+            delay(150)
             requestInfo()
         }
     }
 
-    fun saveBattery(lo: Int, cr: Int, ca: Int) {
+    fun applyBattery(lo: Int, cr: Int, ca: Int) {
         viewModelScope.launch {
             sendLine("SET:cr=$cr")
             delay(120)
             sendLine("SET:lo=$lo")
             delay(120)
             sendLine("SET:ca=$ca")
-            delay(120)
-            sendLine("SAVE")
-            delay(250)
+            delay(150)
             requestInfo()
         }
     }

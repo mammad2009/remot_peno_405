@@ -47,7 +47,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -151,6 +153,33 @@ private fun ValueSlider(
         )
     }
 }
+
+// دکمه‌ی «کپی عددها برای کد»: متن آماده‌ی #define ها را در کلیپ‌بورد می‌گذارد
+@Composable
+private fun CopyCodeButton(code: () -> String) {
+    val S = LocalStrings.current
+    val clip = LocalClipboardManager.current
+    var done by remember { mutableStateOf(false) }
+    LaunchedEffect(done) {
+        if (done) {
+            delay(1800)
+            done = false
+        }
+    }
+    PillButton(
+        label = if (done) S.copied else S.sCopy, accent = Cyan, filled = false, enabled = true,
+        modifier = Modifier.fillMaxWidth(), height = 50.dp,
+        onClick = { clip.setText(AnnotatedString(code())); done = true }
+    )
+}
+
+private fun servoCode(rf: Int, rb: Int, xf: Int, xb: Int, mf: Int, mb: Int): String =
+    "#define DEF_REST_F   $rf\n#define DEF_REST_B   $rb\n#define DEF_MAX_F    $xf\n" +
+        "#define DEF_MAX_B    $xb\n#define DEF_MID_F    $mf\n#define DEF_MID_B    $mb"
+
+private fun batteryCode(on: Boolean, lo: Int, cr: Int, ca: Int): String =
+    "#define BAT_START_ON     " + (if (on) 1 else 0) + "\n#define BAT_LOW_PCT      $lo\n" +
+        "#define BAT_CRIT_PCT     $cr\n#define BAT_CAL          " + (ca / 100) + "." + (ca % 100).toString().padStart(2, '0')
 
 // ---------------- صفحه‌ی خانه ----------------
 
@@ -287,8 +316,10 @@ private fun SuspensionPage(vm: MainViewModel, onBack: () -> Unit) {
             PillButton(
                 label = if (savedFlash) S.saved else S.sSave, accent = Ok, filled = true, enabled = ready,
                 modifier = Modifier.fillMaxWidth(), height = 54.dp,
-                onClick = { vm.saveServos(rf, rb, xf, xb, mf, mb); savedFlash = true }
+                onClick = { vm.applyServos(rf, rb, xf, xb, mf, mb); savedFlash = true }
             )
+            CopyCodeButton { servoCode(rf, rb, xf, xb, mf, mb) }
+            Text(S.sRam, color = Steel, fontSize = 11.sp, lineHeight = 16.sp)
             PillButton(
                 label = S.sDefaults, accent = Danger, filled = false, enabled = true,
                 modifier = Modifier.fillMaxWidth(), height = 46.dp, onClick = { confirmReset = true }
@@ -503,8 +534,10 @@ private fun BatteryPage(vm: MainViewModel, onBack: () -> Unit) {
                     PillButton(
                         label = if (savedFlash) S.saved else S.sSave, accent = Ok, filled = true, enabled = ready,
                         modifier = Modifier.fillMaxWidth(), height = 50.dp,
-                        onClick = { vm.saveBattery(lo, cr, ca); savedFlash = true }
+                        onClick = { vm.applyBattery(lo, cr, ca); savedFlash = true }
                     )
+                    CopyCodeButton { batteryCode(on, lo, cr, ca) }
+                    Text(S.sRam, color = Steel, fontSize = 11.sp, lineHeight = 16.sp)
                 }
 
                 // ---- شبیه‌سازی (برای دیدن افکت‌ها و الارم بدون باتری واقعی) ----
