@@ -1,0 +1,481 @@
+package com.mamad.peugeot405
+
+import android.annotation.SuppressLint
+import android.app.Application
+import android.content.Context
+import android.os.SystemClock
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+@SuppressLint("MissingPermission")
+class MainViewModel(app: Application) : AndroidViewModel(app) {
+    private val store = CommandStore(app)
+    private val bt = WifiClient(app)
+    private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    // شبیه‌ساز کد آردوینو؛ نوار ارتفاع و کج شدن آرم از روی آن می‌آید
+    val sim = SketchSim()
+
+    var commands by mutableStateOf(store.load()); private set
+    var connected by mutableStateOf(false); private set
+    var connecting by mutableStateOf(false); private set
+    // وضعیت قفل ماکت از روی آخرین دکمه‌ی ریموت (null = هنوز چیزی نفرستاده‌ایم)
+    var locked by mutableStateOf<Boolean?>(null); private set
+    var statusType by mutableStateOf(St.IDLE); private set
+    var statusArg by mutableStateOf(""); private set
+    // گوشی الان به یک شبکه‌ی وای‌فای وصل است؟ (باید به وای‌فای ماکت وصل باشد)
+    var wifiReady by mutableStateOf(false); private set
+
+    // زبان برنامه: "fa" یا "en"
+    var lang by mutableStateOf(settings.getString("lang", "fa") ?: "fa"); private set
+    val strings: Strings get() = if (lang == "en") EnStrings else FaStrings
+
+    // درصد باتری ماکت (فقط وقتی ESP عدد بفرستد؛ در کد ماکت ENABLE_BATTERY = 1 باشد)
+    var battery by mutableStateOf<Int?>(null); private set
+
+    // تب فعلی منو: 0 کنترل ، 1 چراغ‌ها ، 2 منو (حالت کارخانه) ، 3 فرمان‌ها
+    var tab by mutableStateOf(0); private set
+    // true = فرمان «ورود به حالت کارخانه» برای ماکت فرستاده شده و هنوز خارج نشده‌ایم
+    var factoryActive by mutableStateOf(false); private set
+    var showroomOn by mutableStateOf(false); private set
+
+    // 0 دستی (سرووها دست توست) ، 1 ربات زنده (سرووها دست خود رباته) ، 2 بازی
+    var ctrlMode by mutableStateOf(0); private set
+
+    // وضعیت ماکت که با #GET می‌خوانیم (کلیدها: rf rb xf xb mf mb pf pb lk fa sh mo od lt tm fx bo bp bv bl lo cr ca bs bc v)
+    var info by mutableStateOf<Map<String, Int>>(emptyMap()); private set
+
+    // چراغ‌ها (هم با فشردن دکمه‌ها عوض می‌شوند هم از #GET هماهنگ می‌شوند)
+    var lightSmall by mutableStateOf(false); private set
+    var lightHigh by mutableStateOf(false); private set
+    var lightRear by mutableStateOf(false); private set
+    var turnMode by mutableStateOf(0); private set     // 0 خاموش 1 راست 2 چپ 3 فلاشر 4 نوبتی 5 افکت
+    var lightFx by mutableStateOf(0); private set
+
+    private var factoryScreen = false     // الان تب کارخانه باز است؟
+    private var foreground = true         // برنامه جلوی چشم کاربر است؟
+    private var readJob: Job? = null
+
+    // صف ارسال: بایت‌ها دقیقاً به ترتیب فشردن/رها کردن فرستاده می‌شوند
+    private val outbox = Channel<String>(Channel.UNLIMITED)
+
+    init {
+        viewModelScope.launch {
+            for (t in outbox) {
+                bt.send(t).onFailure { lostConnection(St.SEND_FAILED) }
+            }
+        }
+        viewModelScope.launch {
+            while (true) {
+                sim.tick(SystemClock.uptimeMillis())
+                delay(10)
+            }
+        }
+        viewModelScope.launch {
+            while (true) {
+                delay(30)
+                testSenderTick()
+            }
+        }
+        // هر ۴ ثانیه یک PING؛ ماکت PONG برمی‌گرداند و اگر اتصال مرده باشد سریع می‌فهمیم
+        viewModelScope.launch {
+            while (true) {
+                delay(4000)
+                if (connected) outbox.trySend("#PING\n")
+            }
+        }
+        refreshNetwork()
+    }
+
+    private fun setStatus(t: St, arg: String = "") {
+        statusType = t
+        statusArg = arg
+    }
+
+    private fun lostConnection(why: St) {
+        readJob?.cancel()
+        connected = false
+        battery = null
+        factoryActive = false
+        showroomOn = false
+        ctrlMode = 0
+        info = emptyMap()
+        setStatus(why)
+    }
+
+    // ---------------- زبان ----------------
+    fun switchLang(l: String) {
+        lang = if (l == "en") "en" else "fa"
+        settings.edit().putString("lang", lang).apply()
+    }
+
+    // ---------------- اتصال (وای‌فای) ----------------
+    fun refreshNetwork() {
+        wifiReady = bt.hasWifi
+    }
+
+    private fun failStatus(e: Throwable) {
+        val m = e.message ?: e.javaClass.simpleName
+        when {
+            m == "NO_WIFI" -> setStatus(St.FAIL_NOWIFI)
+            e is java.net.SocketTimeoutException || e is java.net.ConnectException ||
+                e is java.net.NoRouteToHostException -> setStatus(St.FAIL_NOCAR)
+            else -> setStatus(St.FAIL_RAW, m)
+        }
+    }
+
+    fun connect() = viewModelScope.launch {
+        if (connecting) return@launch
+        connecting = true
+        setStatus(St.CONNECTING)
+        bt.connect()
+            .onSuccess {
+                connected = true
+                locked = null
+                wifiReady = true
+                setStatus(St.CONNECTED, WifiClient.NAME)
+                startReader()
+                // مطمئن شو ماکت از جلسه‌ی قبلی تو حالت کارخانه گیر نکرده باشد
+                factoryActive = factoryScreen && foreground
+                outbox.trySend(if (factoryActive) factoryOnCmd() else factoryOffCmd())
+                outbox.trySend("#GET\n")                    // حالت فعلی ماکت (دستی / زنده) را بخوان
+            }
+            .onFailure {
+                connected = false
+                refreshNetwork()
+                failStatus(it)
+            }
+        connecting = false
+    }
+
+    // اتصال سریع: اگر گوشی به وای‌فای وصل است همان لحظه وصل می‌شود؛ وگرنه false تا راهنمای اتصال نشان داده شود
+    fun connectQuick(): Boolean {
+        refreshNetwork()
+        if (!wifiReady) return false
+        connect()
+        return true
+    }
+
+    fun disconnect() = viewModelScope.launch {
+        if (connected && factoryActive) {      // قبل از قطع شدن، ماکت را از حالت کارخانه بیرون بیاور
+            bt.send(factoryOffCmd())
+            delay(150)
+        }
+        readJob?.cancel()
+        bt.disconnect()
+        connected = false
+        battery = null
+        info = emptyMap()
+        factoryActive = false
+        showroomOn = false
+        ctrlMode = 0
+        setStatus(St.IDLE)
+    }
+
+    // خطوطی که ماکت می‌فرستد؛ مثلا BAT:87
+    private fun startReader() {
+        readJob?.cancel()
+        readJob = viewModelScope.launch {
+            bt.lines().collect { line -> parseLine(line) }
+            // جریان تمام شد = اتصال قطع شده (مثلا ماژول خاموش شد)
+            if (connected) lostConnection(St.IDLE)
+        }
+    }
+
+    private fun parseLine(line: String) {
+        if (line.startsWith("BAT:")) {
+            val v = line.substring(4).trim().toIntOrNull()
+            battery = if (v == null || v < 0) null else v.coerceIn(0, 100)
+        } else if (line.length > 3 && line[0] == 'I' && line[2] == ':') {
+            val m = HashMap(info)
+            for (part in line.substring(3).split(';')) {
+                val kv = part.split('=')
+                if (kv.size == 2) kv[1].trim().toIntOrNull()?.let { m[kv[0].trim()] = it }
+            }
+            info = m
+            if (line[1] == '1' && ctrlMode == 1) {          // ربات زنده: شیر و نوارها بدنه‌ی واقعی را دنبال کنند
+                val pf = m["pf"]
+                val pb = m["pb"]
+                if (pf != null && pb != null) sim.jumpTo(pf, pb)
+            }
+            if (line[1] == '2') {                           // وضعیت چراغ‌ها از ماکت
+                m["md"]?.let { ctrlMode = it }
+                val lt = m["lt"] ?: 0
+                lightSmall = (lt and 1) != 0
+                lightHigh = (lt and 2) != 0
+                lightRear = (lt and 4) != 0
+                turnMode = m["tm"] ?: 0
+                lightFx = m["fx"] ?: 0
+            }
+            if (line[1] == '3') {                           // باتری
+                battery = if ((m["bo"] ?: 0) == 1) (m["bp"] ?: 0).coerceIn(0, 100) else null
+            }
+        }
+    }
+
+    fun send(text: String) {
+        if (!connected) { setStatus(St.NEED_CONNECT); return }
+        outbox.trySend(text)
+    }
+
+    // کاراکتری که شبیه‌ساز باید ببیند (مطابق کد آردوینو، مستقل از فرمانی که کاربر ویرایش کرده)
+    private fun canon(c: Cmd): Char = when (c.action) {
+        "F_UP_S" -> 'F'
+        "F_DN_S" -> 'B'
+        "R_UP_S" -> 'R'
+        "R_DN_S" -> 'L'
+        "F_UP_F" -> '2'
+        "F_DN_F" -> '1'
+        "R_UP_F" -> 'Z'
+        "R_DN_F" -> 'X'
+        "M_ON" -> 'M'
+        "M_OFF" -> 'N'
+        "BOTH_UP" -> 'W'
+        "BOTH_DN" -> 'D'
+        "STOP" -> '0'
+        else -> c.command.firstOrNull() ?: '\u0000'
+    }
+
+    // فشردن یک دکمه: هم فرمان می‌فرستد، هم همان را در شبیه‌ساز اجرا می‌کند (حتی بدون اتصال)
+    fun press(c: Cmd) {
+        send(c.command)
+        sim.receive(canon(c))
+    }
+
+    // رها کردن دکمه‌ی حرکت آرام: فرمان توقف (در کد آردوینو هر کاراکتر دیگری حرکت را متوقف می‌کند)
+    fun pressUp() {
+        val stop = commands.firstOrNull { it.action == "STOP" }
+        send(stop?.command ?: "0")
+        sim.receive('0')
+    }
+
+    private fun cmdFor(action: String): Cmd? = commands.firstOrNull { it.action == action }
+
+    // فرمان‌های چندبایتی (مثل «هر دو بالا»: هر بایت جدا و با فاصله‌ی کوتاه فرستاده می‌شود)
+    fun pressMulti(c: Cmd) {
+        viewModelScope.launch {
+            for (ch in c.command) {
+                send(ch.toString())
+                sim.receive(ch)
+                delay(40)
+            }
+        }
+    }
+
+    // ارتفاع فابریک = وضعیت استراحتِ سرووها (جلو 80، عقب 84). اگر میباخ روشن است با فرمان توقفش برمی‌گردد
+    fun factory(c: Cmd) {
+        // ماکت به ارتفاع فابریک (متوسط) می‌رود، نه کف
+        if (sim.maybachOn) cmdFor("M_OFF")?.let { press(it) }
+        send(c.command)
+        sim.jumpTo(info["mf"] ?: 96, info["mb"] ?: 100)
+    }
+
+    // ---------------- ریموت پژو ----------------
+    fun remoteLock() {
+        send(cmdFor("LOCK")?.command ?: "K")
+        if (connected) locked = true
+    }
+
+    fun remoteUnlock() {
+        send(cmdFor("UNLOCK")?.command ?: "U")
+        if (connected) locked = false
+    }
+
+    // ---------------- حالت کارخانه ----------------
+    // وارد تب «کارخانه» که شدی فرمان ورود (Y) و وقتی از آن خارج شدی یا برنامه را بستی فرمان خروج (V) فرستاده می‌شود
+    private fun factoryOnCmd(): String = cmdFor("FACTORY_ON")?.command ?: "Y"
+    private fun factoryOffCmd(): String = cmdFor("FACTORY_OFF")?.command ?: "V"
+
+    fun selectTab(i: Int) {
+        tab = i
+        factoryScreen = (i == 2)
+        syncFactory()
+    }
+
+    fun setForeground(fg: Boolean) {
+        foreground = fg
+        syncFactory()
+    }
+
+    private fun syncFactory() {
+        val want = factoryScreen && connected && foreground
+        if (want == factoryActive) return
+        factoryActive = want
+        if (want) showroomOn = false           // ماکت موقع ورود به کارخانه نمایشگاهی را می‌بندد
+        if (connected) outbox.trySend(if (want) factoryOnCmd() else factoryOffCmd())
+    }
+
+    // ---------------- فرمان‌های خطی منو (با # شروع و با Enter تمام می‌شوند) ----------------
+    fun sendLine(cmd: String) = send("#" + cmd + "\n")
+
+    fun requestInfo() {
+        if (connected) outbox.trySend("#GET\n")
+    }
+
+    // ---------------- چراغ‌ها ----------------
+    fun setSmall(on: Boolean) { send(if (on) "3" else "4"); if (connected) lightSmall = on }
+    fun setHigh(on: Boolean) { send(if (on) "5" else "6"); if (connected) lightHigh = on }
+    fun setRear(on: Boolean) { send(if (on) "9" else "a"); if (connected) lightRear = on }
+
+    // راهنماها: دوباره زدنِ همان دکمه خاموشش می‌کند. 1 راست ، 2 چپ ، 3 فلاشر ، 4 نوبتی
+    fun toggleTurn(mode: Int) {
+        val off = (turnMode == mode)
+        val ch = when (mode) {
+            1 -> if (off) "f" else "e"
+            2 -> if (off) "h" else "g"
+            3 -> if (off) "8" else "7"
+            else -> if (off) "j" else "i"
+        }
+        send(ch)
+        if (connected) turnMode = if (off) 0 else mode
+    }
+
+    fun toggleFx(fx: Int) {
+        if (turnMode == 5 && lightFx == fx) {
+            send("p")
+            if (connected) turnMode = 0
+        } else {
+            sendLine("LFX:$fx")
+            if (connected) { turnMode = 5; lightFx = fx }
+        }
+    }
+
+    fun lightsOff() {
+        sendLine("LOFF")
+        if (connected) { lightSmall = false; lightHigh = false; lightRear = false; turnMode = 0 }
+    }
+
+    // ---------------- منوی ماکت ----------------
+    // زاویه‌ی خواسته‌شده و آخرین زاویه‌ی فرستاده‌شده‌ی هر سروو (0 = جلو ، 1 = عقب)
+    private val testWant = intArrayOf(-1, -1)
+    private val testSent = intArrayOf(-1, -1)
+
+    // هر مقدار جدید فقط «زاویه‌ی خواسته‌شده» را عوض می‌کند؛ هر ۳۰ میلی‌ثانیه فقط آخرین مقدار فرستاده می‌شود،
+    // پس پشت‌سرهم زدن دکمه یا کشیدن اسلایدر صف درست نمی‌کند و سروو همیشه به آخرین زاویه می‌رود
+    fun testServo(front: Boolean, angle: Int, force: Boolean = false) {
+        testWant[if (front) 0 else 1] = angle
+    }
+
+    private fun testSenderTick() {
+        if (!connected) return
+        for (i in 0..1) {
+            val w = testWant[i]
+            if (w >= 0 && w != testSent[i]) {
+                testSent[i] = w
+                outbox.trySend("#" + (if (i == 0) "TF:" else "TB:") + w + "\n")
+            }
+        }
+    }
+
+    fun releaseServos() {
+        testWant[0] = -1; testWant[1] = -1
+        testSent[0] = -1; testSent[1] = -1
+        sendLine("TX")
+    }
+
+    // با هر بار «برگشت به پیش‌فرض» یکی زیاد می‌شود تا صفحه‌های منو عددها را از ماکت دوباره بخوانند
+    var syncTick by mutableStateOf(0); private set
+
+    // فقط روی ماکت اعمال میشه (RAM) ؛ چیزی ذخیره نمیشه
+    fun applyServos(rf: Int, rb: Int, xf: Int, xb: Int, mf: Int, mb: Int) {
+        viewModelScope.launch {
+            for ((k, v) in listOf("rf" to rf, "rb" to rb, "xf" to xf, "xb" to xb, "mf" to mf, "mb" to mb)) {
+                sendLine("SET:$k=$v")
+                delay(120)
+            }
+            delay(150)
+            requestInfo()
+        }
+    }
+
+    fun applyBattery(lo: Int, cr: Int, ca: Int) {
+        viewModelScope.launch {
+            sendLine("SET:cr=$cr")
+            delay(120)
+            sendLine("SET:lo=$lo")
+            delay(120)
+            sendLine("SET:ca=$ca")
+            delay(150)
+            requestInfo()
+        }
+    }
+
+    fun resetCarDefaults() {
+        viewModelScope.launch {
+            releaseServosQuiet()
+            sendLine("DEFAULTS")
+            delay(1800)                 // ماکت نرم روی کف می‌نشیند
+            requestInfo()
+            delay(500)
+            syncTick++                  // عددهای اسلایدرها دوباره از ماکت خوانده می‌شوند
+        }
+    }
+
+    private fun releaseServosQuiet() {
+        testWant[0] = -1; testWant[1] = -1
+        testSent[0] = -1; testSent[1] = -1
+    }
+
+    fun restartCar() = sendLine("RESET")
+
+    fun setBatteryEnabled(on: Boolean) {
+        viewModelScope.launch {
+            sendLine("BATON:" + (if (on) 1 else 0))
+            delay(300)
+            requestInfo()
+        }
+    }
+
+    fun simBattery(pct: Int) {
+        viewModelScope.launch {
+            sendLine("BATSIM:$pct")
+            delay(500)
+            requestInfo()
+        }
+    }
+
+    fun previewEyes(on: Boolean) {
+        if (connected) outbox.trySend("#PV:" + (if (on) 1 else 0) + "\n")
+    }
+    fun preview(kind: String, id: Int) = sendLine("$kind:$id")
+
+    // ---------------- حالت کنترل: دستی / ربات زنده / بازی ----------------
+    fun setMode(m: Int) {
+        if (!connected) { setStatus(St.NEED_CONNECT); return }
+        if (m == 1 && sim.maybachOn) sim.receive('N')
+        outbox.trySend("#MODE:$m\n")
+        ctrlMode = m
+    }
+
+    // ---------------- حالت نمایشگاهی ----------------
+    fun toggleShowroom() {
+        if (!connected) { setStatus(St.NEED_CONNECT); return }
+        if (showroomOn) {
+            outbox.trySend(cmdFor("SHOW_OFF")?.command ?: "E")
+            showroomOn = false
+        } else {
+            outbox.trySend(cmdFor("SHOW_ON")?.command ?: "S")
+            showroomOn = true
+        }
+    }
+
+    // ---------------- ویرایش فرمان‌ها ----------------
+    fun upsert(c: Cmd) {
+        val i = commands.indexOfFirst { it.id == c.id }
+        commands = if (i >= 0) commands.toMutableList().also { it[i] = c } else commands + c
+        store.save(commands)
+    }
+
+    fun delete(id: String) { commands = commands.filter { it.id != id }; store.save(commands) }
+
+    fun resetDefaults() { store.reset(); commands = DEFAULT_COMMANDS }
+
+    override fun onCleared() { bt.disconnect() }
+}
