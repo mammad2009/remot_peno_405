@@ -46,6 +46,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var factoryActive by mutableStateOf(false); private set
     var showroomOn by mutableStateOf(false); private set
 
+    // 0 دستی (سرووها دست توست) ، 1 ربات زنده (سرووها دست خود رباته) ، 2 بازی
+    var ctrlMode by mutableStateOf(0); private set
+
     // وضعیت ماکت که با #GET می‌خوانیم (کلیدها: rf rb xf xb mf mb pf pb lk fa sh mo od lt tm fx bo bp bv bl lo cr ca bs bc v)
     var info by mutableStateOf<Map<String, Int>>(emptyMap()); private set
 
@@ -102,6 +105,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         battery = null
         factoryActive = false
         showroomOn = false
+        ctrlMode = 0
         info = emptyMap()
         setStatus(why)
     }
@@ -141,6 +145,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // مطمئن شو ماکت از جلسه‌ی قبلی تو حالت کارخانه گیر نکرده باشد
                 factoryActive = factoryScreen && foreground
                 outbox.trySend(if (factoryActive) factoryOnCmd() else factoryOffCmd())
+                outbox.trySend("#GET\n")                    // حالت فعلی ماکت (دستی / زنده) را بخوان
             }
             .onFailure {
                 connected = false
@@ -170,6 +175,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         info = emptyMap()
         factoryActive = false
         showroomOn = false
+        ctrlMode = 0
         setStatus(St.IDLE)
     }
 
@@ -194,7 +200,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (kv.size == 2) kv[1].trim().toIntOrNull()?.let { m[kv[0].trim()] = it }
             }
             info = m
+            if (line[1] == '1' && ctrlMode == 1) {          // ربات زنده: شیر و نوارها بدنه‌ی واقعی را دنبال کنند
+                val pf = m["pf"]
+                val pb = m["pb"]
+                if (pf != null && pb != null) sim.jumpTo(pf, pb)
+            }
             if (line[1] == '2') {                           // وضعیت چراغ‌ها از ماکت
+                m["md"]?.let { ctrlMode = it }
                 val lt = m["lt"] ?: 0
                 lightSmall = (lt and 1) != 0
                 lightHigh = (lt and 2) != 0
@@ -433,6 +445,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (connected) outbox.trySend("#PV:" + (if (on) 1 else 0) + "\n")
     }
     fun preview(kind: String, id: Int) = sendLine("$kind:$id")
+
+    // ---------------- حالت کنترل: دستی / ربات زنده / بازی ----------------
+    fun setMode(m: Int) {
+        if (!connected) { setStatus(St.NEED_CONNECT); return }
+        if (m == 1 && sim.maybachOn) sim.receive('N')
+        outbox.trySend("#MODE:$m\n")
+        ctrlMode = m
+    }
 
     // ---------------- حالت نمایشگاهی ----------------
     fun toggleShowroom() {

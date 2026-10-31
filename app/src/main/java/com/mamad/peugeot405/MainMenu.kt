@@ -3,6 +3,8 @@ package com.mamad.peugeot405
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import kotlinx.coroutines.delay
+import androidx.compose.ui.draw.alpha
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.animateFloat
@@ -242,17 +244,27 @@ fun ControlScreen(vm: MainViewModel) {
     // درصد فقط وقتی عدد صحیحش عوض شود باعث ترکیب مجدد می‌شود
     val pctF by remember { derivedStateOf { (((vm.sim.dispF - 80f) / 32f) * 100f).roundToInt().coerceIn(0, 100) } }
     val pctB by remember { derivedStateOf { (((vm.sim.dispB - 84f) / 31f) * 100f).roundToInt().coerceIn(0, 100) } }
+    val live = vm.ctrlMode == 1
+    // ربات زنده: وضعیت واقعی بدنه را مرتب بخوان تا شیر و نوارها همراهش حرکت کنند
+    LaunchedEffect(vm.ctrlMode, vm.connected) {
+        while (vm.ctrlMode == 1 && vm.connected) {
+            vm.requestInfo()
+            delay(500)
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            item { ModeSwitch(vm) }
             item { LogoStage({ vm.sim.dispF }, { vm.sim.dispB }, vm.sim.maybachOn) }
             item {
                 // چیدمان راست به چپ: جلو (سمت راست مثل ماشین)، عقب، و ستون «هر دو» سمت چپ
+                Box {
                 Row(
-                    Modifier.fillMaxWidth().height(392.dp),
+                    Modifier.fillMaxWidth().height(392.dp).alpha(if (live) 0.35f else 1f),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     AxleCapsule(
@@ -275,6 +287,9 @@ fun ControlScreen(vm: MainViewModel) {
                         vm::press, vm::pressUp, vm::factory, vm::press,
                         Modifier.weight(0.9f).fillMaxHeight()
                     )
+                }
+                // ربات زنده: لمس دکمه‌های پنوماتیک گرفته می‌شود تا با حرکت خود ربات تداخل نکند
+                if (live) Box(Modifier.matchParentSize().pointerInput(Unit) { detectTapGestures { } })
                 }
             }
             item { ShowroomCard(vm) }
@@ -527,5 +542,53 @@ fun ShowroomCard(vm: MainViewModel) {
                 }
             }
         }
+    }
+}
+
+// ---------- کلید سه‌حالته: دستی / ربات زنده / بازی ----------
+
+@Composable
+private fun ModeSeg(
+    icon: String, label: String, selected: Boolean, accent: Color, enabled: Boolean,
+    modifier: Modifier, onClick: () -> Unit
+) {
+    val S = LocalStrings.current
+    val a by animateFloatAsState(if (selected) 1f else 0f, tween(250), label = "seg")
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        modifier.clip(shape)
+            .background(accent.copy(alpha = 0.22f * a))
+            .then(if (selected) Modifier.border(1.5.dp, accent, shape) else Modifier)
+            .clickable(enabled = enabled) { onClick() }
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(icon, fontSize = 20.sp)
+        Text(
+            label, color = if (!enabled) Color(0xFF5A6273) else if (selected) accent else Steel,
+            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
+        )
+        if (!enabled) Text(S.ctrlSoon, color = Color(0xFF5A6273), fontSize = 9.sp)
+    }
+}
+
+@Composable
+private fun ModeSwitch(vm: MainViewModel) {
+    val S = LocalStrings.current
+    val shape = RoundedCornerShape(24.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth().clip(shape).background(Panel)
+                .border(1.dp, Color(0x22FFFFFF), shape).padding(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            ModeSeg("🎮", S.ctrlManual, vm.ctrlMode == 0, Cyan, true, Modifier.weight(1f)) { vm.setMode(0) }
+            ModeSeg("🤖", S.ctrlLive, vm.ctrlMode == 1, Ok, true, Modifier.weight(1f)) { vm.setMode(1) }
+            ModeSeg("🕹️", S.ctrlGame, vm.ctrlMode == 2, Violet, false, Modifier.weight(1f)) { vm.setMode(2) }
+        }
+        Text(
+            if (vm.ctrlMode == 1) S.ctrlHintLive else S.ctrlHintManual,
+            color = Steel, fontSize = 11.5.sp, lineHeight = 16.sp
+        )
     }
 }
