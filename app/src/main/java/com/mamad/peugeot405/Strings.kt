@@ -176,6 +176,11 @@ abstract class Strings {
     abstract val wifiOn: String
     abstract val wifiOffTxt: String
 
+    abstract val lHold: String
+    abstract val sNow: String
+    abstract val sTest: String
+    abstract val showSub: String
+
     // ---------- توابع مشترک ----------
     fun status(t: St, arg: String): String = when (t) {
         St.IDLE -> stIdle
@@ -287,7 +292,7 @@ object FaStrings : Strings() {
     override val stock = "فابریک"
 
     override val showTitle = "حالت نمایشگاهی"
-    override val showDesc = "نمایش پشت‌سرهم همه‌ی حالت‌های چشم، حرکت بدنه و چراغ‌ها؛ مثل رونمایی یک ماشین‌سازی"
+    override val showDesc = "همه‌ی حالت‌های چشم، رقص بدنه و نورها پشت سر هم؛ مثل رونمایی یک ماشین‌سازی"
     override val showStart = "شروع نمایش"
     override val showStop = "توقف نمایش"
     override val showPlaying = "در حال نمایش..."
@@ -313,6 +318,11 @@ object FaStrings : Strings() {
     override val save = "ذخیره"
     override val cancel = "لغو"
     override fun sentCommand(c: String) = "فرمان ارسالی: $c"
+
+    override val lHold = "نور بالا فشاری (نگه دار)"
+    override val sNow = "الان"
+    override val sTest = "تست"
+    override val showSub = "رونمایی ۴۰۵"
 
     override val errNoWifi = "گوشی به وای‌فای وصل نیست؛ اول در تنظیمات به شبکه‌ی Peugeot405 وصل شو"
     override val errNoCar = "ماکت جواب نداد. روشن بودنش را چک کن و مطمئن شو به وای‌فای Peugeot405 وصلی"
@@ -348,10 +358,10 @@ object FaStrings : Strings() {
     override val mSystem = "سیستم"
     override val mBack = "بازگشت"
     override val sRest = "کف (پایین‌ترین)"
-    override val sMid = "ارتفاع متوسط"
+    override val sMid = "ارتفاع فابریک (متوسط)"
     override val sMax = "سقف (بالاترین)"
     override val sSave = "اعمال روی ماکت"
-    override val sDefaults = "برگشت به عددهای کد"
+    override val sDefaults = "برگشت به حالت پیش‌فرض"
     override val sRelease = "برگشت به کف"
     override val sHint = "اسلایدر را آرام بکش؛ سروو همزمان حرکت می‌کند. بعد «اعمال» را بزن. فقط زاویه‌هایی بگذار که مکانیک ماکت تحمل می‌کند."
     override val sWaiting = "در انتظار اطلاعات ماکت..."
@@ -396,7 +406,7 @@ object FaStrings : Strings() {
     override val modeFactory = "کارخانه"
     override val modeShow = "نمایشگاهی"
     override val sysRestart = "ری‌استارت ماکت"
-    override val sysReset = "برگشت همه‌ی عددها به عددهای کد"
+    override val sysReset = "برگشت همه‌ی تغییرات به حالت پیش‌فرض"
 }
 
 object EnStrings : Strings() {
@@ -448,7 +458,7 @@ object EnStrings : Strings() {
     override val stock = "Stock"
 
     override val showTitle = "Showroom mode"
-    override val showDesc = "Plays every eye mood, body motion and light show in sequence, like a car unveiling"
+    override val showDesc = "Every eye mood, body dance and light show in a row, like a car unveiling"
     override val showStart = "Start show"
     override val showStop = "Stop show"
     override val showPlaying = "Showing..."
@@ -474,6 +484,11 @@ object EnStrings : Strings() {
     override val save = "Save"
     override val cancel = "Cancel"
     override fun sentCommand(c: String) = "Sends: $c"
+
+    override val lHold = "High beam flash (hold)"
+    override val sNow = "Now"
+    override val sTest = "Test"
+    override val showSub = "405 UNVEILING"
 
     override val errNoWifi = "The phone is not on Wi-Fi; join the Peugeot405 network in Wi-Fi settings first"
     override val errNoCar = "The car did not answer. Check it is powered and that you are on the Peugeot405 Wi-Fi"
@@ -509,10 +524,10 @@ object EnStrings : Strings() {
     override val mSystem = "System"
     override val mBack = "Back"
     override val sRest = "Floor (lowest)"
-    override val sMid = "Mid height"
+    override val sMid = "Stock height (mid)"
     override val sMax = "Ceiling (highest)"
     override val sSave = "Apply to car"
-    override val sDefaults = "Back to code values"
+    override val sDefaults = "Back to defaults"
     override val sRelease = "Return to floor"
     override val sHint = "Drag slowly; the servo follows live. Then tap Apply. Only use angles your mechanics can take."
     override val sWaiting = "Waiting for car data..."
@@ -557,7 +572,7 @@ object EnStrings : Strings() {
     override val modeFactory = "Factory"
     override val modeShow = "Showroom"
     override val sysRestart = "Restart car"
-    override val sysReset = "Reset all values to the code values"
+    override val sysReset = "Reset all changes to defaults"
 }
 
 val LocalStrings = staticCompositionLocalOf<Strings> { FaStrings }

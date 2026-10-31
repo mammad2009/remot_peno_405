@@ -3,6 +3,11 @@ package com.mamad.peugeot405
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -267,7 +272,7 @@ fun ControlScreen(vm: MainViewModel) {
                     AllCapsule(
                         find("BOTH_UP"), find("BOTH_DN"), find("FACTORY"),
                         find("M_ON"), find("M_OFF"), vm.sim.maybachOn,
-                        vm::pressMulti, vm::factory, vm::press,
+                        vm::press, vm::pressUp, vm::factory, vm::press,
                         Modifier.weight(0.9f).fillMaxHeight()
                     )
                 }
@@ -373,7 +378,7 @@ fun AxleCapsule(
 @Composable
 fun AllCapsule(
     bothUp: Cmd?, bothDown: Cmd?, factory: Cmd?, mOn: Cmd?, mOff: Cmd?, maybachOn: Boolean,
-    onMulti: (Cmd) -> Unit, onFactory: (Cmd) -> Unit, onPress: (Cmd) -> Unit,
+    onHoldStart: (Cmd) -> Unit, onHoldEnd: () -> Unit, onFactory: (Cmd) -> Unit, onPress: (Cmd) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val S = LocalStrings.current
@@ -392,7 +397,8 @@ fun AllCapsule(
         }
         PressBox(
             Modifier.fillMaxWidth().height(70.dp), Silver, filled = true, enabled = bothUp != null,
-            onDown = { bothUp?.let(onMulti) }
+            onDown = { bothUp?.let(onHoldStart) },       // تا وقتی دست روی دکمه است هر دو سروو آرام بالا میروند (W)
+            onUp = { onHoldEnd() }
         ) { _ ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Chevrons(true, 2, Ink, 28.dp)
@@ -415,7 +421,8 @@ fun AllCapsule(
         }
         PressBox(
             Modifier.fillMaxWidth().height(70.dp), Silver, filled = true, enabled = bothDown != null,
-            onDown = { bothDown?.let(onMulti) }
+            onDown = { bothDown?.let(onHoldStart) },     // تا وقتی دست روی دکمه است هر دو سروو آرام پایین میروند (D)
+            onUp = { onHoldEnd() }
         ) { _ ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Chevrons(false, 2, Ink, 28.dp)
@@ -435,20 +442,90 @@ fun AllCapsule(
     }
 }
 
-// ---------- حالت نمایشگاهی: شروع / توقف ----------
+// ---------- حالت نمایشگاهی: کارت رونمایی ----------
 
 @Composable
 fun ShowroomCard(vm: MainViewModel) {
     val S = LocalStrings.current
-    CardBox(Gold, active = vm.showroomOn) {
-        CardTitle(S.showTitle, "SHOWROOM", Gold)
-        Text(S.showDesc, color = Steel, fontSize = 12.sp)
-        if (vm.showroomOn) Text(S.showPlaying, color = Gold, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        PillButton(
-            label = if (vm.showroomOn) S.showStop else S.showStart,
-            accent = Gold, filled = !vm.showroomOn, enabled = true,
-            modifier = Modifier.fillMaxWidth(), height = 52.dp,
-            onClick = { vm.toggleShowroom() }
-        )
+    val on = vm.showroomOn
+    val inf = rememberInfiniteTransition(label = "showroom")
+    val t by inf.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "showT")
+    val glow by animateFloatAsState(if (on) 1f else 0f, tween(500), label = "showGlow")
+    val shape = RoundedCornerShape(28.dp)
+
+    Box(
+        Modifier.fillMaxWidth().clip(shape)
+            .background(Brush.linearGradient(listOf(Color(0xFF2B2108), Color(0xFF0E0A12), Color(0xFF1B1433))))
+            .border(1.5.dp, Brush.linearGradient(listOf(Gold, Violet, Gold)), shape)
+            .clickable { vm.toggleShowroom() }
+    ) {
+        // نورافکن‌های چرخان + نوار موج (وقتی نمایش پخش می‌شود)
+        Canvas(Modifier.matchParentSize()) {
+            val w = size.width
+            val h = size.height
+            for (k in 0..1) {
+                val dir = if (k == 0) 1f else -1f
+                val sway = kotlin.math.sin((t + k * 0.5f) * 6.2832f) * (0.10f + 0.20f * glow)
+                val x0 = w * (if (k == 0) 0.18f else 0.82f)
+                val p = Path().apply {
+                    moveTo(x0 - 6f, 0f)
+                    lineTo(x0 + 6f, 0f)
+                    lineTo(w * (0.5f + dir * sway * 1.4f) + 70f, h)
+                    lineTo(w * (0.5f + dir * sway * 1.4f) - 70f, h)
+                    close()
+                }
+                drawPath(p, Brush.verticalGradient(listOf((if (k == 0) Gold else Violet).copy(alpha = 0.10f + 0.20f * glow), Color.Transparent)))
+            }
+            val bars = 28
+            val bw = w / bars
+            for (i in 0 until bars) {
+                val amp = 0.18f + 0.82f * glow
+                val bh = h * 0.22f * amp * (0.5f + 0.5f * kotlin.math.sin((t * 2f + i * 0.35f) * 6.2832f)) + 3f
+                drawRoundRect(
+                    (if (i % 2 == 0) Gold else Violet).copy(alpha = 0.22f + 0.30f * glow),
+                    Offset(i * bw + bw * 0.2f, h - bh), Size(bw * 0.6f, bh), CornerRadius(3f)
+                )
+            }
+        }
+        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(S.showSub, color = Gold, fontSize = 10.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+                Text(S.showTitle, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                Text(S.showDesc, color = Silver.copy(alpha = 0.75f), fontSize = 11.5.sp, lineHeight = 16.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    for (e in listOf("😎", "😍", "😱", "😠", "🥳", "✨")) Text(e, fontSize = 17.sp)
+                }
+                if (on) Text(S.showPlaying, color = Gold, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.width(14.dp))
+            // دکمه‌ی بزرگ پخش / توقف
+            Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val c = Offset(size.width / 2f, size.height / 2f)
+                    val r = size.minDimension / 2f
+                    if (on) {
+                        drawCircle(Gold.copy(alpha = 0.35f * (1f - t)), r * (0.75f + 0.25f * t), c, style = Stroke(3f))
+                        drawCircle(Gold.copy(alpha = 0.25f * (1f - ((t + 0.5f) % 1f))), r * (0.75f + 0.25f * ((t + 0.5f) % 1f)), c, style = Stroke(3f))
+                    }
+                    drawCircle(
+                        brush = Brush.linearGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFB07A1A))),
+                        radius = r * 0.72f, center = c
+                    )
+                    if (on) {                                        // مربع توقف
+                        val q = r * 0.26f
+                        drawRoundRect(Ink, Offset(c.x - q, c.y - q), Size(q * 2f, q * 2f), CornerRadius(4f))
+                    } else {                                         // مثلث پخش
+                        val q = r * 0.30f
+                        val p = Path().apply {
+                            moveTo(c.x - q * 0.7f, c.y - q)
+                            lineTo(c.x + q * 1.1f, c.y)
+                            lineTo(c.x - q * 0.7f, c.y + q)
+                            close()
+                        }
+                        drawPath(p, Ink)
+                    }
+                }
+            }
+        }
     }
 }

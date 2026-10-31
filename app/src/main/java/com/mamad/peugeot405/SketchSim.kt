@@ -56,6 +56,11 @@ class SketchSim {
     /** دریافت یک کاراکتر (مثل بلوتوث) */
     fun receive(c: Char) { queue.addLast(c) }
 
+    // رفتن به یک ارتفاع مشخص (برای دکمه‌ی فابریک)
+    fun jumpTo(f: Int, b: Int) {
+        if (!maybachMode) { posF = f; posB = b }
+    }
+
     fun tick(now: Long) {
         // هر دور حلقه یک بایت خوانده می‌شود
         if (queue.isNotEmpty()) {
@@ -73,6 +78,8 @@ class SketchSim {
                 'B' -> if (posF > 80) posF--
                 'R' -> if (posB < 115) posB++
                 'L' -> if (posB > 84) posB--
+                'W' -> { if (posF < 112) posF++; if (posB < 115) posB++ }
+                'D' -> { if (posF > 80) posF--; if (posB > 84) posB-- }
             }
         }
 

@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -80,6 +82,7 @@ fun LightsScreen(vm: MainViewModel) {
                 RoundLightButton(S.lHigh, 1, vm.lightHigh, Color.White) { vm.setHigh(!vm.lightHigh) }
                 RoundLightButton(S.lRear, 2, vm.lightRear, RedLamp) { vm.setRear(!vm.lightRear) }
             }
+            HoldHighButton(vm)
         }
 
         // ---- راهنماها ----
@@ -330,5 +333,38 @@ private fun ShowCard(fx: Named, selected: Boolean, clock: () -> Long, onClick: (
             lamp(Offset(r, r), r * 0.75f, Amber, (o and 2) != 0)
             lamp(Offset(size.width - r, r), r * 0.75f, Amber, (o and 1) != 0)
         }
+    }
+}
+
+// ---------------- نور بالای فشاری: تا وقتی دست روی دکمه است روشن ----------------
+
+@Composable
+private fun HoldHighButton(vm: MainViewModel) {
+    val S = LocalStrings.current
+    var pressed by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Row(
+        Modifier.fillMaxWidth().height(58.dp).clip(shape)
+            .background(if (pressed) Color.White.copy(alpha = 0.26f) else Color(0xFF141922))
+            .border(if (pressed) 2.dp else 1.dp, if (pressed) Color.White else Color(0x55FFFFFF), shape)
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = {
+                    val was = vm.lightHigh            // حالت قبلی نور بالا (اگر از قبل روشن بود روشن می‌ماند)
+                    pressed = true
+                    vm.setHigh(true)
+                    try {
+                        tryAwaitRelease()
+                    } finally {
+                        pressed = false
+                        vm.setHigh(was)
+                    }
+                })
+            },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Canvas(Modifier.size(28.dp)) { lampIcon(1, if (pressed) Color.White else Steel) }
+        Spacer(Modifier.width(10.dp))
+        Text(S.lHold, color = if (pressed) Color.White else Steel, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }

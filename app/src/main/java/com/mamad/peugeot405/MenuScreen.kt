@@ -207,6 +207,7 @@ private fun MenuTile(
 @Composable
 private fun MenuHub(vm: MainViewModel, onExit: () -> Unit, onOpen: (Int) -> Unit) {
     val S = LocalStrings.current
+    var confirmAll by remember { mutableStateOf(false) }
     val i = vm.info
     val suspSub = if (i.containsKey("rf")) "F ${i["rf"]}°–${i["xf"]}°  R ${i["rb"]}°–${i["xb"]}°" else "—"
     val batSub = when {
@@ -243,30 +244,93 @@ private fun MenuHub(vm: MainViewModel, onExit: () -> Unit, onOpen: (Int) -> Unit
             MenuTile("⚙️", S.mSystem, sysSub, Gold, Modifier.weight(1f)) { onOpen(4) }
         }
         PillButton(
+            label = S.sysReset, accent = Danger, filled = false, enabled = vm.connected,
+            modifier = Modifier.fillMaxWidth(), height = 50.dp, onClick = { confirmAll = true }
+        )
+        PillButton(
             label = S.facExit, accent = Cyan, filled = true, enabled = true,
             modifier = Modifier.fillMaxWidth(), height = 52.dp, onClick = onExit
         )
         Spacer(Modifier.height(8.dp))
     }
+    if (confirmAll) {
+        AlertDialog(
+            onDismissRequest = { confirmAll = false },
+            title = { Text(S.sysReset) },
+            confirmButton = { TextButton(onClick = { vm.resetCarDefaults(); confirmAll = false }) { Text(S.save) } },
+            dismissButton = { TextButton(onClick = { confirmAll = false }) { Text(S.cancel) } }
+        )
+    }
 }
 
 // ---------------- تعلیق و سرووها ----------------
 
+// دکمه‌ی کوچک − و + برای تنظیم دقیق (هر لمس = همان لحظه فرمان به سروو)
+@Composable
+private fun StepBtn(label: String, accent: Color, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        Modifier.size(width = 46.dp, height = 40.dp).clip(shape)
+            .background(Color(0xFF1A2230)).border(1.dp, accent.copy(alpha = 0.6f), shape)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// یک عدد زاویه: دکمه‌های −5 −1 +1 +5 (دقیق) + اسلایدر (سریع) + دکمه‌ی تست
+@Composable
+private fun AngleRow(
+    label: String, value: Int, lo: Int, hi: Int, accent: Color,
+    onChange: (Int) -> Unit, onTest: () -> Unit
+) {
+    val S = LocalStrings.current
+    fun set(v: Int) { onChange(v.coerceIn(lo, hi)) }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            TextButton(onClick = onTest) { Text(S.sTest, color = accent, fontSize = 12.sp) }
+        }
+        Row(
+            Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            StepBtn("−5", accent) { set(value - 5) }
+            StepBtn("−1", accent) { set(value - 1) }
+            Text("$value°", color = accent, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            StepBtn("+1", accent) { set(value + 1) }
+            StepBtn("+5", accent) { set(value + 5) }
+        }
+        Slider(
+            value = value.coerceIn(lo, hi).toFloat(),
+            onValueChange = { set(Math.round(it)) },
+            valueRange = lo.toFloat()..hi.toFloat(),
+            colors = SliderDefaults.colors(
+                thumbColor = accent, activeTrackColor = accent, inactiveTrackColor = Color(0xFF232A36)
+            )
+        )
+    }
+}
+
 @Composable
 private fun AxleEditor(
-    title: String, front: Boolean, accent: Color,
+    title: String, front: Boolean, accent: Color, nowAngle: Int?,
     rest: Int, mid: Int, max: Int,
     onRest: (Int) -> Unit, onMid: (Int) -> Unit, onMax: (Int) -> Unit, vm: MainViewModel
 ) {
     val S = LocalStrings.current
     CardBox(accent) {
-        CardTitle(title, if (front) "FRONT" else "REAR", accent)
-        ValueSlider(S.sRest, rest, 50, 110, accent, "°",
-            { onRest(it); vm.testServo(front, it) }, { vm.testServo(front, rest, true) })
-        ValueSlider(S.sMid, mid, rest, max, accent, "°",
-            { onMid(it); vm.testServo(front, it) }, { vm.testServo(front, mid, true) })
-        ValueSlider(S.sMax, max, rest + 5, 150, accent, "°",
-            { onMax(it); vm.testServo(front, it) }, { vm.testServo(front, max, true) })
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { CardTitle(title, if (front) "FRONT" else "REAR", accent) }
+            Text(
+                S.sNow + ": " + (nowAngle?.let { "$it°" } ?: "—"),
+                color = Steel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
+            )
+        }
+        AngleRow(S.sRest, rest, 50, 110, accent, { onRest(it); vm.testServo(front, it) }, { vm.testServo(front, rest) })
+        AngleRow(S.sMid, mid, rest, max, accent, { onMid(it); vm.testServo(front, it) }, { vm.testServo(front, mid) })
+        AngleRow(S.sMax, max, rest + 5, 150, accent, { onMax(it); vm.testServo(front, it) }, { vm.testServo(front, max) })
     }
 }
 
@@ -274,12 +338,19 @@ private fun AxleEditor(
 private fun SuspensionPage(vm: MainViewModel, onBack: () -> Unit) {
     val S = LocalStrings.current
     val ready = vm.info.containsKey("rf")
-    var rf by remember(ready) { mutableIntStateOf(vm.info["rf"] ?: 80) }
-    var rb by remember(ready) { mutableIntStateOf(vm.info["rb"] ?: 84) }
-    var xf by remember(ready) { mutableIntStateOf(vm.info["xf"] ?: 112) }
-    var xb by remember(ready) { mutableIntStateOf(vm.info["xb"] ?: 115) }
-    var mf by remember(ready) { mutableIntStateOf(vm.info["mf"] ?: 96) }
-    var mb by remember(ready) { mutableIntStateOf(vm.info["mb"] ?: 100) }
+    var rf by remember(ready, vm.syncTick) { mutableIntStateOf(vm.info["rf"] ?: 80) }
+    var rb by remember(ready, vm.syncTick) { mutableIntStateOf(vm.info["rb"] ?: 84) }
+    var xf by remember(ready, vm.syncTick) { mutableIntStateOf(vm.info["xf"] ?: 112) }
+    var xb by remember(ready, vm.syncTick) { mutableIntStateOf(vm.info["xb"] ?: 115) }
+    var mf by remember(ready, vm.syncTick) { mutableIntStateOf(vm.info["mf"] ?: 96) }
+    var mb by remember(ready, vm.syncTick) { mutableIntStateOf(vm.info["mb"] ?: 100) }
+    // تا وقتی این صفحه بازه، زاویه‌ی واقعی سروو از ماکت خونده میشه (ببینی واقعا رسیده یا نه)
+    LaunchedEffect(Unit) {
+        while (true) {
+            vm.requestInfo()
+            delay(700)
+        }
+    }
     var savedFlash by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
     LaunchedEffect(savedFlash) {
@@ -299,19 +370,20 @@ private fun SuspensionPage(vm: MainViewModel, onBack: () -> Unit) {
             Text(S.sHint, color = Steel, fontSize = 12.sp, lineHeight = 18.sp)
 
             AxleEditor(
-                S.front, true, Cyan, rf, mf, xf,
+                S.front, true, Cyan, vm.info["pf"], rf, mf, xf,
                 { rf = it; if (mf < it) mf = it; if (xf < it + 5) xf = it + 5 },
                 { mf = it }, { xf = it; if (mf > it) mf = it }, vm
             )
             AxleEditor(
-                S.rear, false, Violet, rb, mb, xb,
+                S.rear, false, Violet, vm.info["pb"], rb, mb, xb,
                 { rb = it; if (mb < it) mb = it; if (xb < it + 5) xb = it + 5 },
                 { mb = it }, { xb = it; if (mb > it) mb = it }, vm
             )
 
             PillButton(
                 label = S.sRelease, accent = Gold, filled = false, enabled = true,
-                modifier = Modifier.fillMaxWidth(), height = 50.dp, onClick = { vm.releaseServos() }
+                modifier = Modifier.fillMaxWidth(), height = 50.dp,
+                onClick = { vm.releaseServos() }
             )
             PillButton(
                 label = if (savedFlash) S.saved else S.sSave, accent = Ok, filled = true, enabled = ready,
@@ -474,9 +546,9 @@ private fun BatteryPage(vm: MainViewModel, onBack: () -> Unit) {
     val bl = i["bl"] ?: 4
     val col = if (on) levelColor(bl) else Steel
 
-    var lo by remember(ready) { mutableIntStateOf(i["lo"] ?: 20) }
-    var cr by remember(ready) { mutableIntStateOf(i["cr"] ?: 8) }
-    var ca by remember(ready) { mutableIntStateOf(i["ca"] ?: 100) }
+    var lo by remember(ready, vm.syncTick) { mutableIntStateOf(i["lo"] ?: 20) }
+    var cr by remember(ready, vm.syncTick) { mutableIntStateOf(i["cr"] ?: 8) }
+    var ca by remember(ready, vm.syncTick) { mutableIntStateOf(i["ca"] ?: 100) }
     var savedFlash by remember { mutableStateOf(false) }
     LaunchedEffect(savedFlash) {
         if (savedFlash) {

@@ -75,6 +75,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 delay(10)
             }
         }
+        viewModelScope.launch {
+            while (true) {
+                delay(30)
+                testSenderTick()
+            }
+        }
         // هر ۴ ثانیه یک PING؛ ماکت PONG برمی‌گرداند و اگر اتصال مرده باشد سریع می‌فهمیم
         viewModelScope.launch {
             while (true) {
@@ -219,6 +225,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         "R_DN_F" -> 'X'
         "M_ON" -> 'M'
         "M_OFF" -> 'N'
+        "BOTH_UP" -> 'W'
+        "BOTH_DN" -> 'D'
         "STOP" -> '0'
         else -> c.command.firstOrNull() ?: '\u0000'
     }
@@ -251,7 +259,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // ارتفاع فابریک = وضعیت استراحتِ سرووها (جلو 80، عقب 84). اگر میباخ روشن است با فرمان توقفش برمی‌گردد
     fun factory(c: Cmd) {
-        if (sim.maybachOn) cmdFor("M_OFF")?.let { press(it) } else pressMulti(c)
+        // ماکت به ارتفاع فابریک (متوسط) می‌رود، نه کف
+        if (sim.maybachOn) cmdFor("M_OFF")?.let { press(it) }
+        send(c.command)
+        sim.jumpTo(info["mf"] ?: 96, info["mb"] ?: 100)
     }
 
     // ---------------- ریموت پژو ----------------
@@ -330,17 +341,35 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------------- منوی ماکت ----------------
-    private var lastTestAt = 0L
+    // زاویه‌ی خواسته‌شده و آخرین زاویه‌ی فرستاده‌شده‌ی هر سروو (0 = جلو ، 1 = عقب)
+    private val testWant = intArrayOf(-1, -1)
+    private val testSent = intArrayOf(-1, -1)
 
-    // وقتی اسلایدر را می‌کشی: سروو همزمان می‌رود (هر ۷۰ میلی‌ثانیه یک بار)
+    // هر مقدار جدید فقط «زاویه‌ی خواسته‌شده» را عوض می‌کند؛ هر ۳۰ میلی‌ثانیه فقط آخرین مقدار فرستاده می‌شود،
+    // پس پشت‌سرهم زدن دکمه یا کشیدن اسلایدر صف درست نمی‌کند و سروو همیشه به آخرین زاویه می‌رود
     fun testServo(front: Boolean, angle: Int, force: Boolean = false) {
-        val now = SystemClock.uptimeMillis()
-        if (!force && now - lastTestAt < 70) return
-        lastTestAt = now
-        sendLine((if (front) "TF:" else "TB:") + angle)
+        testWant[if (front) 0 else 1] = angle
     }
 
-    fun releaseServos() = sendLine("TX")
+    private fun testSenderTick() {
+        if (!connected) return
+        for (i in 0..1) {
+            val w = testWant[i]
+            if (w >= 0 && w != testSent[i]) {
+                testSent[i] = w
+                outbox.trySend("#" + (if (i == 0) "TF:" else "TB:") + w + "\n")
+            }
+        }
+    }
+
+    fun releaseServos() {
+        testWant[0] = -1; testWant[1] = -1
+        testSent[0] = -1; testSent[1] = -1
+        sendLine("TX")
+    }
+
+    // با هر بار «برگشت به پیش‌فرض» یکی زیاد می‌شود تا صفحه‌های منو عددها را از ماکت دوباره بخوانند
+    var syncTick by mutableStateOf(0); private set
 
     // فقط روی ماکت اعمال میشه (RAM) ؛ چیزی ذخیره نمیشه
     fun applyServos(rf: Int, rb: Int, xf: Int, xb: Int, mf: Int, mb: Int) {
@@ -368,10 +397,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun resetCarDefaults() {
         viewModelScope.launch {
+            releaseServosQuiet()
             sendLine("DEFAULTS")
-            delay(400)
+            delay(1800)                 // ماکت نرم روی کف می‌نشیند
             requestInfo()
+            delay(500)
+            syncTick++                  // عددهای اسلایدرها دوباره از ماکت خوانده می‌شوند
         }
+    }
+
+    private fun releaseServosQuiet() {
+        testWant[0] = -1; testWant[1] = -1
+        testSent[0] = -1; testSent[1] = -1
     }
 
     fun restartCar() = sendLine("RESET")

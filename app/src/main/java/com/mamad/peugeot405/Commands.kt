@@ -25,10 +25,11 @@ val DEFAULT_COMMANDS = listOf(
     Cmd("r_dn_f", "نشست سریع", "X", "عقب", "R_DN_F"),
     Cmd("m_on", "شروع میباخ", "M", "میباخ", "M_ON"),
     Cmd("m_off", "توقف", "N", "میباخ", "M_OFF"),
-    // هر دو محور همزمان (دو بایت پشت سر هم؛ آردوینو هر دور حلقه یک بایت می‌خواند)
-    Cmd("both_up", "هر دو بالا", "2Z", "هر دو", "BOTH_UP"),
-    Cmd("both_dn", "هر دو پایین", "1X", "هر دو", "BOTH_DN"),
-    Cmd("factory", "ارتفاع فابریک", "1X", "هر دو", "FACTORY"),
+    // هر دو محور همزمان و آرام: تا وقتی دست روی دکمه است (W بالا ، D پایین)
+    Cmd("both_up", "هر دو بالا", "W", "هر دو", "BOTH_UP"),
+    Cmd("both_dn", "هر دو پایین", "D", "هر دو", "BOTH_DN"),
+    // ارتفاع فابریک = رفتن نرم به ارتفاع متوسط (midF/midB در کد ماکت ؛ از منو تنظیم میشه)
+    Cmd("factory", "ارتفاع فابریک", "#STOCK\n", "هر دو", "FACTORY"),
     // ریموت پژو
     Cmd("lock", "قفل", "K", "ریموت", "LOCK"),
     Cmd("unlock", "باز", "U", "ریموت", "UNLOCK"),
@@ -58,8 +59,17 @@ class CommandStore(context: Context) {
             }
         }.getOrNull() ?: return DEFAULT_COMMANDS
         // فرمان‌های جدیدِ پیش‌فرض (هر دو، فابریک، ریموت، کارخانه، نمایشگاهی) به لیست ذخیره‌شده‌ی قبلی اضافه می‌شوند
-        val have = saved.map { it.id }.toSet()
-        return saved + DEFAULT_COMMANDS.filter { it.id !in have }
+        // فرمان‌های پیش‌فرض قدیمی (نسخه‌های قبل) به فرمان جدید ارتقا پیدا می‌کنند
+        val fixed = saved.map {
+            when {
+                it.id == "both_up" && it.command == "2Z" -> it.copy(command = "W")
+                it.id == "both_dn" && it.command == "1X" -> it.copy(command = "D")
+                it.id == "factory" && it.command == "1X" -> it.copy(command = "#STOCK\n")
+                else -> it
+            }
+        }
+        val have = fixed.map { it.id }.toSet()
+        return fixed + DEFAULT_COMMANDS.filter { it.id !in have }
     }
 
     fun save(list: List<Cmd>) {
