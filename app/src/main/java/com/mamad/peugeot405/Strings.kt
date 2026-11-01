@@ -182,11 +182,10 @@ abstract class Strings {
     abstract val showSub: String
 
     abstract val ctrlManual: String
-    abstract val ctrlLive: String
     abstract val ctrlGame: String
     abstract val ctrlSoon: String
     abstract val ctrlHintManual: String
-    abstract val ctrlHintLive: String
+    abstract val ctrlHintGame: String
 
     // ---------- توابع مشترک ----------
     fun status(t: St, arg: String): String = when (t) {
@@ -327,11 +326,10 @@ object FaStrings : Strings() {
     override fun sentCommand(c: String) = "فرمان ارسالی: $c"
 
     override val ctrlManual = "دستی"
-    override val ctrlLive = "ربات زنده"
     override val ctrlGame = "بازی"
     override val ctrlSoon = "به‌زودی"
     override val ctrlHintManual = "سرووها دست توست؛ با دکمه‌های پنوماتیک هر طور خواستی بازی کن"
-    override val ctrlHintLive = "ربات خودش بدنه را کنترل می‌کند: نفس می‌کشد، با احساسش بالا و پایین می‌رود، می‌ترسد و می‌لرزد. دکمه‌های پنوماتیک خاموش‌اند"
+    override val ctrlHintGame = "ماکت با گوشی تو بازی می‌کنه: گوشی رو کج کن، با پد لمسی هدایتش کن، با موسیقی برقصونش یا حرکت‌هات رو ضبط کن. دکمه‌های پنوماتیک خاموش‌اند"
 
     override val lHold = "نور بالا فشاری (نگه دار)"
     override val sNow = "الان"
@@ -500,11 +498,10 @@ object EnStrings : Strings() {
     override fun sentCommand(c: String) = "Sends: $c"
 
     override val ctrlManual = "Manual"
-    override val ctrlLive = "Live robot"
     override val ctrlGame = "Game"
     override val ctrlSoon = "Soon"
     override val ctrlHintManual = "The servos are yours; play with the pneumatic buttons however you like"
-    override val ctrlHintLive = "The robot drives its own body: it breathes, rises and sinks with its mood, gets scared and shivers. Pneumatic buttons are off"
+    override val ctrlHintGame = "Play with the car using your phone: tilt it, drive it on the touch pads, make it dance to music or record your moves. Pneumatic buttons are off"
 
     override val lHold = "High beam flash (hold)"
     override val sNow = "Now"

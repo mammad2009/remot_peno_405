@@ -245,14 +245,7 @@ fun ControlScreen(vm: MainViewModel) {
     // درصد فقط وقتی عدد صحیحش عوض شود باعث ترکیب مجدد می‌شود
     val pctF by remember { derivedStateOf { (((vm.sim.dispF - 80f) / 32f) * 100f).roundToInt().coerceIn(0, 100) } }
     val pctB by remember { derivedStateOf { (((vm.sim.dispB - 84f) / 31f) * 100f).roundToInt().coerceIn(0, 100) } }
-    val live = vm.ctrlMode == 1
-    // ربات زنده: وضعیت واقعی بدنه را مرتب بخوان تا شیر و نوارها همراهش حرکت کنند
-    LaunchedEffect(vm.ctrlMode, vm.connected) {
-        while (vm.ctrlMode == 1 && vm.connected) {
-            vm.requestInfo()
-            delay(500)
-        }
-    }
+    val gameOn = vm.ctrlMode == 1
     Column(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
@@ -261,41 +254,42 @@ fun ControlScreen(vm: MainViewModel) {
         ) {
             item { ModeSwitch(vm) }
             item { LogoStage({ vm.sim.dispF }, { vm.sim.dispB }, vm.sim.maybachOn) }
-            item {
-                // چیدمان راست به چپ: جلو (سمت راست مثل ماشین)، عقب، و ستون «هر دو» سمت چپ
-                Box {
-                Row(
-                    Modifier.fillMaxWidth().height(392.dp).alpha(if (live) 0.35f else 1f),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    AxleCapsule(
-                        S.front, "FRONT", Cyan,
-                        find("F_UP_S"), find("F_UP_F"), find("F_DN_S"), find("F_DN_F"),
-                        { (vm.sim.dispF - 80f) / 32f }, pctF,
-                        vm::press, vm::press, vm::pressUp,
-                        Modifier.weight(1f).fillMaxHeight()
-                    )
-                    AxleCapsule(
-                        S.rear, "REAR", Violet,
-                        find("R_UP_S"), find("R_UP_F"), find("R_DN_S"), find("R_DN_F"),
-                        { (vm.sim.dispB - 84f) / 31f }, pctB,
-                        vm::press, vm::press, vm::pressUp,
-                        Modifier.weight(1f).fillMaxHeight()
-                    )
-                    AllCapsule(
-                        find("BOTH_UP"), find("BOTH_DN"), find("FACTORY"),
-                        find("M_ON"), find("M_OFF"), vm.sim.maybachOn,
-                        vm::press, vm::pressUp, vm::factory, vm::press,
-                        Modifier.weight(0.9f).fillMaxHeight()
-                    )
+            if (gameOn) {
+                // حالت بازی: کابین «i-Cockpit 405» جای دکمه‌های پنوماتیک میاد
+                item(key = "game") { GamePanel(vm) }
+            } else {
+                item {
+                    // چیدمان راست به چپ: جلو (سمت راست مثل ماشین)، عقب، و ستون «هر دو» سمت چپ
+                    Row(
+                        Modifier.fillMaxWidth().height(392.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        AxleCapsule(
+                            S.front, "FRONT", Cyan,
+                            find("F_UP_S"), find("F_UP_F"), find("F_DN_S"), find("F_DN_F"),
+                            { (vm.sim.dispF - 80f) / 32f }, pctF,
+                            vm::press, vm::press, vm::pressUp,
+                            Modifier.weight(1f).fillMaxHeight()
+                        )
+                        AxleCapsule(
+                            S.rear, "REAR", Violet,
+                            find("R_UP_S"), find("R_UP_F"), find("R_DN_S"), find("R_DN_F"),
+                            { (vm.sim.dispB - 84f) / 31f }, pctB,
+                            vm::press, vm::press, vm::pressUp,
+                            Modifier.weight(1f).fillMaxHeight()
+                        )
+                        AllCapsule(
+                            find("BOTH_UP"), find("BOTH_DN"), find("FACTORY"),
+                            find("M_ON"), find("M_OFF"), vm.sim.maybachOn,
+                            vm::press, vm::pressUp, vm::factory, vm::press,
+                            Modifier.weight(0.9f).fillMaxHeight()
+                        )
+                    }
                 }
-                // ربات زنده: لمس دکمه‌های پنوماتیک گرفته می‌شود تا با حرکت خود ربات تداخل نکند
-                if (live) Box(Modifier.matchParentSize().pointerInput(Unit) { detectTapGestures { } })
+                item { ShowroomCard(vm) }
+                groups.forEach { (name, list) ->
+                    item(key = "group_$name") { GroupCard(S.group(name), list, vm::press) }
                 }
-            }
-            item { ShowroomCard(vm) }
-            groups.forEach { (name, list) ->
-                item(key = "group_$name") { GroupCard(S.group(name), list, vm::press) }
             }
         }
     }
@@ -546,7 +540,7 @@ fun ShowroomCard(vm: MainViewModel) {
     }
 }
 
-// ---------- کلید سه‌حالته: دستی / ربات زنده / بازی ----------
+// ---------- کلید دوحالته: دستی / بازی ----------
 
 @Composable
 private fun ModeSeg(
@@ -584,11 +578,10 @@ private fun ModeSwitch(vm: MainViewModel) {
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             ModeSeg("🎮", S.ctrlManual, vm.ctrlMode == 0, Cyan, true, Modifier.weight(1f)) { vm.setMode(0) }
-            ModeSeg("🤖", S.ctrlLive, vm.ctrlMode == 1, Ok, true, Modifier.weight(1f)) { vm.setMode(1) }
-            ModeSeg("🕹️", S.ctrlGame, vm.ctrlMode == 2, Violet, false, Modifier.weight(1f)) { vm.setMode(2) }
+            ModeSeg("🕹️", S.ctrlGame, vm.ctrlMode == 1, Violet, true, Modifier.weight(1f)) { vm.setMode(1) }
         }
         Text(
-            if (vm.ctrlMode == 1) S.ctrlHintLive else S.ctrlHintManual,
+            if (vm.ctrlMode == 1) S.ctrlHintGame else S.ctrlHintManual,
             color = Steel, fontSize = 11.5.sp, lineHeight = 16.sp
         )
     }

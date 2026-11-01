@@ -20,6 +20,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val bt = WifiClient(app)
     private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
+    // حالت بازی (i-Cockpit): کج کردن گوشی ، پد لمسی ، رقص با موسیقی ، حافظه‌ی ضبط حرکت ، صدای ماکت
+    val game = GameController(app, viewModelScope) { t -> sendQuiet(t) }
+
     // شبیه‌ساز کد آردوینو؛ نوار ارتفاع و کج شدن آرم از روی آن می‌آید
     val sim = SketchSim()
 
@@ -46,8 +49,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var factoryActive by mutableStateOf(false); private set
     var showroomOn by mutableStateOf(false); private set
 
-    // 0 دستی (سرووها دست توست) ، 1 ربات زنده (سرووها دست خود رباته) ، 2 بازی
+    // 0 دستی (سرووها دست توست) ، 1 بازی (گوشی سرووها رو میچرخونه) ؛ مثل md در کد ماکت v27
     var ctrlMode by mutableStateOf(0); private set
+    private var modeSetAt = 0L
 
     // وضعیت ماکت که با #GET می‌خوانیم (کلیدها: rf rb xf xb mf mb pf pb lk fa sh mo od lt tm fx bo bp bv bl lo cr ca bs bc v)
     var info by mutableStateOf<Map<String, Int>>(emptyMap()); private set
@@ -60,7 +64,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var lightFx by mutableStateOf(0); private set
 
     private var factoryScreen = false     // الان تب کارخانه باز است؟
-    private var foreground = true         // برنامه جلوی چشم کاربر است؟
+    var foreground by mutableStateOf(true); private set   // برنامه جلوی چشم کاربر است؟
     private var readJob: Job? = null
 
     // صف ارسال: بایت‌ها دقیقاً به ترتیب فشردن/رها کردن فرستاده می‌شوند
@@ -105,6 +109,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         battery = null
         factoryActive = false
         showroomOn = false
+        game.leave()
         ctrlMode = 0
         info = emptyMap()
         setStatus(why)
@@ -145,7 +150,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // مطمئن شو ماکت از جلسه‌ی قبلی تو حالت کارخانه گیر نکرده باشد
                 factoryActive = factoryScreen && foreground
                 outbox.trySend(if (factoryActive) factoryOnCmd() else factoryOffCmd())
-                outbox.trySend("#GET\n")                    // حالت فعلی ماکت (دستی / زنده) را بخوان
+                outbox.trySend("#MODE:0\n")                 // همیشه از حالت دستی شروع کن (ماکت ممکنه از جلسه‌ی قبل تو بازی/رقص مونده باشه)
+                outbox.trySend("#EV:0\n")
+                outbox.trySend("#GET\n")                    // وضعیت ماکت را بخوان
             }
             .onFailure {
                 connected = false
@@ -164,8 +171,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun disconnect() = viewModelScope.launch {
-        if (connected && factoryActive) {      // قبل از قطع شدن، ماکت را از حالت کارخانه بیرون بیاور
-            bt.send(factoryOffCmd())
+        if (connected && (factoryActive || ctrlMode != 0)) {   // قبل از قطع شدن، ماکت را از کارخانه / بازی بیرون بیاور
+            game.leave()
+            if (ctrlMode != 0) bt.send("#MODE:0\n")
+            if (factoryActive) bt.send(factoryOffCmd())
             delay(150)
         }
         readJob?.cancel()
@@ -190,7 +199,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun parseLine(line: String) {
-        if (line.startsWith("BAT:")) {
+        if (line.startsWith("EV:")) {
+            game.onEvent(line, lang == "en")
+        } else if (line.startsWith("BAT:")) {
             val v = line.substring(4).trim().toIntOrNull()
             battery = if (v == null || v < 0) null else v.coerceIn(0, 100)
         } else if (line.length > 3 && line[0] == 'I' && line[2] == ':') {
@@ -200,13 +211,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (kv.size == 2) kv[1].trim().toIntOrNull()?.let { m[kv[0].trim()] = it }
             }
             info = m
-            if (line[1] == '1' && ctrlMode == 1) {          // ربات زنده: شیر و نوارها بدنه‌ی واقعی را دنبال کنند
-                val pf = m["pf"]
-                val pb = m["pb"]
-                if (pf != null && pb != null) sim.jumpTo(pf, pb)
-            }
             if (line[1] == '2') {                           // وضعیت چراغ‌ها از ماکت
-                m["md"]?.let { ctrlMode = it }
+                m["md"]?.let {
+                    if (SystemClock.uptimeMillis() - modeSetAt > 1500L) {   // پاسخ قدیمی وسط عوض کردن حالت رو نادیده بگیر
+                        ctrlMode = it
+                        if (it == 1 && !game.on) game.enter(m) else if (it != 1 && game.on) game.leave()
+                    }
+                }
                 val lt = m["lt"] ?: 0
                 lightSmall = (lt and 1) != 0
                 lightHigh = (lt and 2) != 0
@@ -223,6 +234,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun send(text: String) {
         if (!connected) { setStatus(St.NEED_CONNECT); return }
         outbox.trySend(text)
+    }
+
+    // برای حالت بازی: بدون پیغام خطا (وقتی وصل نیستیم هیچ‌کاری نمیکند)
+    fun sendQuiet(text: String) {
+        if (connected) outbox.trySend(text)
     }
 
     // کاراکتری که شبیه‌ساز باید ببیند (مطابق کد آردوینو، مستقل از فرمانی که کاربر ویرایش کرده)
@@ -446,12 +462,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun preview(kind: String, id: Int) = sendLine("$kind:$id")
 
-    // ---------------- حالت کنترل: دستی / ربات زنده / بازی ----------------
+    // ---------------- حالت کنترل: دستی / بازی ----------------
     fun setMode(m: Int) {
         if (!connected) { setStatus(St.NEED_CONNECT); return }
-        if (m == 1 && sim.maybachOn) sim.receive('N')
-        outbox.trySend("#MODE:$m\n")
-        ctrlMode = m
+        if (m == ctrlMode) return
+        modeSetAt = SystemClock.uptimeMillis()
+        if (m == 1) {
+            if (sim.maybachOn) sim.receive('N')
+            if (showroomOn) {                                   // نمایشگاهی با بازی جور نیست
+                outbox.trySend(cmdFor("SHOW_OFF")?.command ?: "E")
+                showroomOn = false
+            }
+            outbox.trySend("#MODE:1\n")
+            ctrlMode = 1
+            game.enter(info)
+        } else {
+            game.leave()
+            outbox.trySend("#MODE:0\n")
+            ctrlMode = 0
+        }
     }
 
     // ---------------- حالت نمایشگاهی ----------------
@@ -477,5 +506,5 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun resetDefaults() { store.reset(); commands = DEFAULT_COMMANDS }
 
-    override fun onCleared() { bt.disconnect() }
+    override fun onCleared() { game.shutdown(); bt.disconnect() }
 }
