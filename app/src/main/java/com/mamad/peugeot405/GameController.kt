@@ -183,8 +183,8 @@ class GameController(
         }
     }
 
-    fun setInvert(v: Boolean) { invert = v; prefs.edit().putBoolean("invert", v).apply() }
-    fun setHeightByRoll(v: Boolean) { heightByRoll = v; prefs.edit().putBoolean("roll", v).apply() }
+    fun updateInvert(v: Boolean) { invert = v; prefs.edit().putBoolean("invert", v).apply() }
+    fun updateHeightByRoll(v: Boolean) { heightByRoll = v; prefs.edit().putBoolean("roll", v).apply() }
 
     // ---------------- ورودی کاربر (هنگام پخش حافظه نادیده) ----------------
     fun userBody(nh: Int, nd: Int) {

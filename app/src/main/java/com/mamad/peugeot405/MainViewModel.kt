@@ -315,7 +315,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         syncFactory()
     }
 
-    fun setForeground(fg: Boolean) {
+    fun updateForeground(fg: Boolean) {
         foreground = fg
         syncFactory()
     }

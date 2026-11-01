@@ -69,12 +69,12 @@ class MainActivity : ComponentActivity() {
     // وقتی برنامه از جلوی چشم رفت (یا بسته شد) ماکت از حالت کارخانه بیرون می‌آید؛ برگشتی دوباره وارد می‌شود
     override fun onStart() {
         super.onStart()
-        vm.setForeground(true)
+        vm.updateForeground(true)
     }
 
     override fun onStop() {
         super.onStop()
-        vm.setForeground(false)
+        vm.updateForeground(false)
     }
 
     private fun openWifiSettings() {

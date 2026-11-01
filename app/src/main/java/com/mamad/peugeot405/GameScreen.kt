@@ -237,8 +237,8 @@ private fun TiltPane(g: GameController, en: Boolean) {
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         GChip("🎯 " + tr("صفر کن", "Zero"), false, Cyan) { g.calibrate() }
-        GChip("⇅ " + tr("برعکس", "Flip"), g.invert, Violet) { g.setInvert(!g.invert) }
-        GChip("🎢 " + tr("ارتفاع با کج‌شدن چپ/راست", "Height by roll"), g.heightByRoll, Gold) { g.setHeightByRoll(!g.heightByRoll) }
+        GChip("⇅ " + tr("برعکس", "Flip"), g.invert, Violet) { g.updateInvert(!g.invert) }
+        GChip("🎢 " + tr("ارتفاع با کج‌شدن چپ/راست", "Height by roll"), g.heightByRoll, Gold) { g.updateHeightByRoll(!g.heightByRoll) }
     }
     Text(
         tr(
