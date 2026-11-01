@@ -5,7 +5,6 @@ import android.app.Application
 import android.content.Context
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -13,7 +12,6 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 
 @SuppressLint("MissingPermission")
@@ -21,6 +19,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val store = CommandStore(app)
     private val bt = WifiClient(app)
     private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    // حالت بازی (i-Cockpit): کج کردن گوشی ، پد لمسی ، رقص با موسیقی ، حافظه‌ی ضبط حرکت ، صدای ماکت
+    val game = GameController(app, viewModelScope) { t -> sendQuiet(t) }
 
     // شبیه‌ساز کد آردوینو؛ نوار ارتفاع و کج شدن آرم از روی آن می‌آید
     val sim = SketchSim()
@@ -48,33 +49,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var factoryActive by mutableStateOf(false); private set
     var showroomOn by mutableStateOf(false); private set
 
-    // 0 دستی (پنوماتیک ، سرووها دست توست) ، 1 بازی (گوشی سرووها را می‌چرخاند)
+    // 0 دستی (سرووها دست توست) ، 1 بازی (گوشی سرووها رو میچرخونه) ؛ مثل md در کد ماکت v27
     var ctrlMode by mutableStateOf(0); private set
-
-    // ---------------- حالت بازی ----------------
-    var gameH by mutableIntStateOf(50); private set          // ارتفاع هر دو سروو 0..100
-    var gameD by mutableIntStateOf(0); private set           // الاکلنگی جلو/عقب -100..100
-    var danceOn by mutableStateOf(false); private set
-    var micLevel by mutableStateOf(0f); private set
-    var recording by mutableStateOf(false); private set
-    var playingMotion by mutableStateOf<String?>(null); private set
-    val carEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
-    val sound = SoundEngine(app)
-    private val motionStore = MotionStore(app)
-    var motions by mutableStateOf(motionStore.load()); private set
-    private var gameWantH = -1
-    private var gameWantD = 0
-    private var gameSentH = -2
-    private var gameSentD = -2
-    private var gazeActive = false
-    private var gazeX = 0
-    private var gazeY = 0
-    private var gazeLastSend = 0L
-    private var gazeSentOff = true
-    private var recStart = 0L
-    private val recSamples = ArrayList<MotionSample>()
-    private var playJob: Job? = null
-    private var beat: BeatDetector? = null
+    private var modeSetAt = 0L
 
     // وضعیت ماکت که با #GET می‌خوانیم (کلیدها: rf rb xf xb mf mb pf pb lk fa sh mo od lt tm fx bo bp bv bl lo cr ca bs bc v)
     var info by mutableStateOf<Map<String, Int>>(emptyMap()); private set
@@ -87,7 +64,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var lightFx by mutableStateOf(0); private set
 
     private var factoryScreen = false     // الان تب کارخانه باز است؟
-    private var foreground = true         // برنامه جلوی چشم کاربر است؟
+    var foreground by mutableStateOf(true); private set   // برنامه جلوی چشم کاربر است؟
     private var readJob: Job? = null
 
     // صف ارسال: بایت‌ها دقیقاً به ترتیب فشردن/رها کردن فرستاده می‌شوند
@@ -132,10 +109,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         battery = null
         factoryActive = false
         showroomOn = false
+        game.leave()
         ctrlMode = 0
-        beat?.stop(); beat = null; danceOn = false; micLevel = 0f
-        stopMotion()
-        sound.stopEngine()
         info = emptyMap()
         setStatus(why)
     }
@@ -175,7 +150,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // مطمئن شو ماکت از جلسه‌ی قبلی تو حالت کارخانه گیر نکرده باشد
                 factoryActive = factoryScreen && foreground
                 outbox.trySend(if (factoryActive) factoryOnCmd() else factoryOffCmd())
-                outbox.trySend("#GET\n")                    // حالت فعلی ماکت (دستی / زنده) را بخوان
+                outbox.trySend("#MODE:0\n")                 // همیشه از حالت دستی شروع کن (ماکت ممکنه از جلسه‌ی قبل تو بازی/رقص مونده باشه)
+                outbox.trySend("#EV:0\n")
+                outbox.trySend("#GET\n")                    // وضعیت ماکت را بخوان
             }
             .onFailure {
                 connected = false
@@ -194,8 +171,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun disconnect() = viewModelScope.launch {
-        if (connected && factoryActive) {      // قبل از قطع شدن، ماکت را از حالت کارخانه بیرون بیاور
-            bt.send(factoryOffCmd())
+        if (connected && (factoryActive || ctrlMode != 0)) {   // قبل از قطع شدن، ماکت را از کارخانه / بازی بیرون بیاور
+            game.leave()
+            if (ctrlMode != 0) bt.send("#MODE:0\n")
+            if (factoryActive) bt.send(factoryOffCmd())
             delay(150)
         }
         readJob?.cancel()
@@ -221,7 +200,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun parseLine(line: String) {
         if (line.startsWith("EV:")) {
-            carEvents.tryEmit(line.substring(3))              // اتفاق‌های ماکت برای صدا (EV:P7 / EV:T15 / EV:M0)
+            game.onEvent(line, lang == "en")
         } else if (line.startsWith("BAT:")) {
             val v = line.substring(4).trim().toIntOrNull()
             battery = if (v == null || v < 0) null else v.coerceIn(0, 100)
@@ -233,7 +212,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             info = m
             if (line[1] == '2') {                           // وضعیت چراغ‌ها از ماکت
-                m["md"]?.let { ctrlMode = it }
+                m["md"]?.let {
+                    if (SystemClock.uptimeMillis() - modeSetAt > 1500L) {   // پاسخ قدیمی وسط عوض کردن حالت رو نادیده بگیر
+                        ctrlMode = it
+                        if (it == 1 && !game.on) game.enter(m) else if (it != 1 && game.on) game.leave()
+                    }
+                }
                 val lt = m["lt"] ?: 0
                 lightSmall = (lt and 1) != 0
                 lightHigh = (lt and 2) != 0
@@ -250,6 +234,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun send(text: String) {
         if (!connected) { setStatus(St.NEED_CONNECT); return }
         outbox.trySend(text)
+    }
+
+    // برای حالت بازی: بدون پیغام خطا (وقتی وصل نیستیم هیچ‌کاری نمیکند)
+    fun sendQuiet(text: String) {
+        if (connected) outbox.trySend(text)
     }
 
     // کاراکتری که شبیه‌ساز باید ببیند (مطابق کد آردوینو، مستقل از فرمانی که کاربر ویرایش کرده)
@@ -326,7 +315,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         syncFactory()
     }
 
-    fun setForeground(fg: Boolean) {
+    fun updateForeground(fg: Boolean) {
         foreground = fg
         syncFactory()
     }
@@ -392,22 +381,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun testSenderTick() {
         if (!connected) return
-        if (gameWantH >= 0 && (gameWantH != gameSentH || gameWantD != gameSentD)) {      // فقط آخرین مقدار بازی
-            gameSentH = gameWantH
-            gameSentD = gameWantD
-            outbox.trySend("#GM:" + gameSentH + "," + gameSentD + "\n")
-        }
-        val nowMs = SystemClock.uptimeMillis()
-        if (gazeActive) {                                                                 // چشم‌ها دنبال انگشت
-            if (nowMs - gazeLastSend > 150) {
-                gazeLastSend = nowMs
-                gazeSentOff = false
-                outbox.trySend("#EYE:" + gazeX + "," + gazeY + "\n")
-            }
-        } else if (!gazeSentOff) {
-            gazeSentOff = true
-            outbox.trySend("#EYE:0,0\n")
-        }
         for (i in 0..1) {
             val w = testWant[i]
             if (w >= 0 && w != testSent[i]) {
@@ -492,129 +465,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------- حالت کنترل: دستی / بازی ----------------
     fun setMode(m: Int) {
         if (!connected) { setStatus(St.NEED_CONNECT); return }
-        if (m == 1 && sim.maybachOn) sim.receive('N')
-        if (m == 0) leaveGame()
-        outbox.trySend("#MODE:$m\n")
-        ctrlMode = m
-        if (m == 1) { gameWantH = -1; gameSentH = -2 }          // تا اولین ورودی کاربر ماکت را تکان نده
-    }
-
-    // ---------------- بازی: ارتفاع ، چشم‌ها ، رقص ، ضبط ، صدا ----------------
-    fun setGame(h: Int, d: Int) {
-        val hh = h.coerceIn(0, 100)
-        val dd = d.coerceIn(-100, 100)
-        gameH = hh
-        gameD = dd
-        gameWantH = hh
-        gameWantD = dd
-        recordSample(hh, dd)
-        // شیر روی صفحه همراه حرکت بدنه کج می‌شود
-        sim.jumpTo(80 + (32f * hh / 100f + dd * 0.12f).toInt(), 84 + (31f * hh / 100f - dd * 0.12f).toInt())
-    }
-
-    fun setGaze(x: Int, y: Int, active: Boolean) {
-        gazeX = x.coerceIn(-100, 100)
-        gazeY = y.coerceIn(-100, 100)
-        gazeActive = active
-    }
-
-    fun setEvents(on: Boolean) {
-        if (connected) outbox.trySend("#EV:" + (if (on) 1 else 0) + "\n")
-    }
-
-    fun engine(on: Boolean) {
-        if (on) sound.startEngine(viewModelScope) else sound.stopEngine()
-    }
-
-    // مجوز میکروفن را خود صفحه می‌گیرد؛ اینجا فقط شروع می‌شود
-    fun startDance(): Boolean {
-        if (!connected) { setStatus(St.NEED_CONNECT); return false }
-        if (danceOn) return true
-        outbox.trySend("#DANCE:1\n")
-        danceOn = true
-        val d = BeatDetector()
-        beat = d
-        d.start(viewModelScope, { st -> outbox.trySend("#BEAT:" + st + "\n") }, { micLevel = it })
-        return true
-    }
-
-    fun stopDance() {
-        beat?.stop()
-        beat = null
-        micLevel = 0f
-        if (danceOn) {
-            danceOn = false
-            if (connected) outbox.trySend("#DANCE:0\n")
-        }
-    }
-
-    private fun recordSample(h: Int, d: Int) {
-        if (!recording) return
-        val t = (SystemClock.uptimeMillis() - recStart).toInt()
-        val last = recSamples.lastOrNull()
-        if (last != null && t - last.t < 40) return
-        recSamples.add(MotionSample(t, h, d))
-    }
-
-    fun startRecording() {
-        recSamples.clear()
-        recStart = SystemClock.uptimeMillis()
-        recording = true
-        recordSample(gameH, gameD)
-    }
-
-    // name = null یعنی دور بریز
-    fun stopRecording(name: String?) {
-        if (!recording) return
-        recordSample(gameH, gameD)
-        recording = false
-        if (name != null && recSamples.size >= 2) {
-            val list = motions + Motion(name.trim().ifEmpty { "Motion" }, ArrayList(recSamples))
-            motions = list
-            motionStore.save(list)
-        }
-        recSamples.clear()
-    }
-
-    fun playMotion(m: Motion, loop: Boolean) {
-        playJob?.cancel()
-        playingMotion = m.name
-        playJob = viewModelScope.launch {
-            try {
-                do {
-                    var prev = 0
-                    for (s in m.samples) {
-                        delay((s.t - prev).toLong().coerceAtLeast(0L))
-                        prev = s.t
-                        setGame(s.h, s.d)
-                    }
-                } while (loop)
-            } finally {
-                playingMotion = null
+        if (m == ctrlMode) return
+        modeSetAt = SystemClock.uptimeMillis()
+        if (m == 1) {
+            if (sim.maybachOn) sim.receive('N')
+            if (showroomOn) {                                   // نمایشگاهی با بازی جور نیست
+                outbox.trySend(cmdFor("SHOW_OFF")?.command ?: "E")
+                showroomOn = false
             }
+            outbox.trySend("#MODE:1\n")
+            ctrlMode = 1
+            game.enter(info)
+        } else {
+            game.leave()
+            outbox.trySend("#MODE:0\n")
+            ctrlMode = 0
         }
-    }
-
-    fun stopMotion() {
-        playJob?.cancel()
-        playJob = null
-        playingMotion = null
-    }
-
-    fun deleteMotion(name: String) {
-        val list = motions.filter { it.name != name }
-        motions = list
-        motionStore.save(list)
-    }
-
-    // از حالت بازی بیرون رفتیم: همه‌چیز (رقص ، صدا ، ضبط ، پخش) آروم خاموش شود
-    fun leaveGame() {
-        stopDance()
-        stopMotion()
-        if (recording) stopRecording(null)
-        sound.stopEngine()
-        setGaze(0, 0, false)
-        setEvents(false)
     }
 
     // ---------------- حالت نمایشگاهی ----------------
@@ -640,9 +506,5 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun resetDefaults() { store.reset(); commands = DEFAULT_COMMANDS }
 
-    override fun onCleared() {
-        beat?.stop()
-        sound.release()
-        bt.disconnect()
-    }
+    override fun onCleared() { game.shutdown(); bt.disconnect() }
 }
