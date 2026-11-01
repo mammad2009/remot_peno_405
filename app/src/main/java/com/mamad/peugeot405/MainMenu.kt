@@ -245,7 +245,7 @@ fun ControlScreen(vm: MainViewModel) {
     // درصد فقط وقتی عدد صحیحش عوض شود باعث ترکیب مجدد می‌شود
     val pctF by remember { derivedStateOf { (((vm.sim.dispF - 80f) / 32f) * 100f).roundToInt().coerceIn(0, 100) } }
     val pctB by remember { derivedStateOf { (((vm.sim.dispB - 84f) / 31f) * 100f).roundToInt().coerceIn(0, 100) } }
-    val gameOn = vm.ctrlMode == 1
+    val game = vm.ctrlMode == 1
     Column(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
@@ -254,42 +254,41 @@ fun ControlScreen(vm: MainViewModel) {
         ) {
             item { ModeSwitch(vm) }
             item { LogoStage({ vm.sim.dispF }, { vm.sim.dispB }, vm.sim.maybachOn) }
-            if (gameOn) {
-                // حالت بازی: کابین «i-Cockpit 405» جای دکمه‌های پنوماتیک میاد
-                item(key = "game") { GamePanel(vm) }
+            if (game) {
+                item { GamePanel(vm) }                          // حالت بازی: گوشی سرووها را می‌چرخاند
             } else {
-                item {
-                    // چیدمان راست به چپ: جلو (سمت راست مثل ماشین)، عقب، و ستون «هر دو» سمت چپ
-                    Row(
-                        Modifier.fillMaxWidth().height(392.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        AxleCapsule(
-                            S.front, "FRONT", Cyan,
-                            find("F_UP_S"), find("F_UP_F"), find("F_DN_S"), find("F_DN_F"),
-                            { (vm.sim.dispF - 80f) / 32f }, pctF,
-                            vm::press, vm::press, vm::pressUp,
-                            Modifier.weight(1f).fillMaxHeight()
-                        )
-                        AxleCapsule(
-                            S.rear, "REAR", Violet,
-                            find("R_UP_S"), find("R_UP_F"), find("R_DN_S"), find("R_DN_F"),
-                            { (vm.sim.dispB - 84f) / 31f }, pctB,
-                            vm::press, vm::press, vm::pressUp,
-                            Modifier.weight(1f).fillMaxHeight()
-                        )
-                        AllCapsule(
-                            find("BOTH_UP"), find("BOTH_DN"), find("FACTORY"),
-                            find("M_ON"), find("M_OFF"), vm.sim.maybachOn,
-                            vm::press, vm::pressUp, vm::factory, vm::press,
-                            Modifier.weight(0.9f).fillMaxHeight()
-                        )
-                    }
+            item {
+                // چیدمان راست به چپ: جلو (سمت راست مثل ماشین)، عقب، و ستون «هر دو» سمت چپ
+                Row(
+                    Modifier.fillMaxWidth().height(392.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    AxleCapsule(
+                        S.front, "FRONT", Cyan,
+                        find("F_UP_S"), find("F_UP_F"), find("F_DN_S"), find("F_DN_F"),
+                        { (vm.sim.dispF - 80f) / 32f }, pctF,
+                        vm::press, vm::press, vm::pressUp,
+                        Modifier.weight(1f).fillMaxHeight()
+                    )
+                    AxleCapsule(
+                        S.rear, "REAR", Violet,
+                        find("R_UP_S"), find("R_UP_F"), find("R_DN_S"), find("R_DN_F"),
+                        { (vm.sim.dispB - 84f) / 31f }, pctB,
+                        vm::press, vm::press, vm::pressUp,
+                        Modifier.weight(1f).fillMaxHeight()
+                    )
+                    AllCapsule(
+                        find("BOTH_UP"), find("BOTH_DN"), find("FACTORY"),
+                        find("M_ON"), find("M_OFF"), vm.sim.maybachOn,
+                        vm::press, vm::pressUp, vm::factory, vm::press,
+                        Modifier.weight(0.9f).fillMaxHeight()
+                    )
                 }
-                item { ShowroomCard(vm) }
-                groups.forEach { (name, list) ->
-                    item(key = "group_$name") { GroupCard(S.group(name), list, vm::press) }
-                }
+            }
+            item { ShowroomCard(vm) }
+            groups.forEach { (name, list) ->
+                item(key = "group_$name") { GroupCard(S.group(name), list, vm::press) }
+            }
             }
         }
     }
@@ -540,7 +539,7 @@ fun ShowroomCard(vm: MainViewModel) {
     }
 }
 
-// ---------- کلید دوحالته: دستی / بازی ----------
+// ---------- کلید سه‌حالته: دستی / ربات زنده / بازی ----------
 
 @Composable
 private fun ModeSeg(

@@ -185,7 +185,40 @@ abstract class Strings {
     abstract val ctrlGame: String
     abstract val ctrlSoon: String
     abstract val ctrlHintManual: String
+
     abstract val ctrlHintGame: String
+    abstract val gMeter: String
+    abstract val gTilt: String
+    abstract val gTiltHint: String
+    abstract val gInvert: String
+    abstract val gCenter: String
+    abstract val gRange: String
+    abstract val gNoSensor: String
+    abstract val gPad: String
+    abstract val gPadHint: String
+    abstract val gDance: String
+    abstract val gDanceHint: String
+    abstract val gDanceStart: String
+    abstract val gDanceStop: String
+    abstract val gMicDenied: String
+    abstract val gRec: String
+    abstract val gRecHint: String
+    abstract val gRecStart: String
+    abstract val gRecStop: String
+    abstract val gRecording: String
+    abstract val gName: String
+    abstract val gMotions: String
+    abstract val gPlay: String
+    abstract val gStopPlay: String
+    abstract val gLoop: String
+    abstract val gDelete: String
+    abstract val gNoMotions: String
+    abstract val gSound: String
+    abstract val gEngine: String
+    abstract val gHorn: String
+    abstract val gVoice: String
+    abstract val gFx: String
+    abstract val gVoiceNote: String
 
     // ---------- توابع مشترک ----------
     fun status(t: St, arg: String): String = when (t) {
@@ -325,11 +358,44 @@ object FaStrings : Strings() {
     override val cancel = "لغو"
     override fun sentCommand(c: String) = "فرمان ارسالی: $c"
 
+    override val ctrlHintGame = "گوشی سرووها را می‌چرخاند: کج کردن، پد لمسی، رقص با موسیقی، ضبط حرکت و صدا. دکمه‌های پنوماتیک کنار رفته‌اند"
+    override val gMeter = "ارتفاع بدنه"
+    override val gTilt = "کنترل با کج کردن گوشی"
+    override val gTiltHint = "گوشی را راست و چپ کج کن؛ هر دو سروو با هم بالا و پایین می‌روند"
+    override val gInvert = "برعکس"
+    override val gCenter = "مرکز همین‌جا"
+    override val gRange = "حساسیت (درجه‌ی کج شدن تا انتها)"
+    override val gNoSensor = "این گوشی حسگر شتاب ندارد"
+    override val gPad = "پد لمسی"
+    override val gPadHint = "بالا و پایین = ارتفاع ، چپ و راست = الاکلنگی جلو/عقب. چشم‌های ماکت دنبال انگشتت نگاه می‌کنند"
+    override val gDance = "رقص با موسیقی"
+    override val gDanceHint = "موسیقی را از بلندگو پخش کن؛ میکروفن ضرب را می‌گیرد و ماکت با بدنه، چشم و چراغ می‌رقصد"
+    override val gDanceStart = "شروع رقص"
+    override val gDanceStop = "توقف رقص"
+    override val gMicDenied = "اجازه‌ی میکروفن داده نشد"
+    override val gRec = "ضبط حرکت"
+    override val gRecHint = "با پد یا کج کردن حرکتی بزن، ضبطش کن و هر وقت خواستی دوباره پخشش کن"
+    override val gRecStart = "شروع ضبط"
+    override val gRecStop = "توقف و ذخیره"
+    override val gRecording = "در حال ضبط..."
+    override val gName = "اسم حرکت"
+    override val gMotions = "حرکت‌های ذخیره‌شده"
+    override val gPlay = "پخش"
+    override val gStopPlay = "توقف"
+    override val gLoop = "تکرار"
+    override val gDelete = "حذف"
+    override val gNoMotions = "هنوز حرکتی ضبط نکرده‌ای"
+    override val gSound = "صدا"
+    override val gEngine = "صدای موتور (با ارتفاع بدنه بالا و پایین می‌شود)"
+    override val gHorn = "بوق"
+    override val gVoice = "ماکت حرف بزند (خواندن جمله‌هایش)"
+    override val gFx = "افکت صدای احساسات"
+    override val gVoiceNote = "فارسی‌خوانی به موتور صدای گوشی بستگی دارد؛ اگر نصب نباشد جمله‌ها خوانده نمی‌شوند"
+
     override val ctrlManual = "دستی"
     override val ctrlGame = "بازی"
     override val ctrlSoon = "به‌زودی"
     override val ctrlHintManual = "سرووها دست توست؛ با دکمه‌های پنوماتیک هر طور خواستی بازی کن"
-    override val ctrlHintGame = "ماکت با گوشی تو بازی می‌کنه: گوشی رو کج کن، با پد لمسی هدایتش کن، با موسیقی برقصونش یا حرکت‌هات رو ضبط کن. دکمه‌های پنوماتیک خاموش‌اند"
 
     override val lHold = "نور بالا فشاری (نگه دار)"
     override val sNow = "الان"
@@ -497,11 +563,44 @@ object EnStrings : Strings() {
     override val cancel = "Cancel"
     override fun sentCommand(c: String) = "Sends: $c"
 
+    override val ctrlHintGame = "The phone drives the servos: tilt, touch pad, dance to music, motion recording and sound. The pneumatic buttons step aside"
+    override val gMeter = "Body height"
+    override val gTilt = "Tilt control"
+    override val gTiltHint = "Tilt the phone left and right; both servos rise and sink together"
+    override val gInvert = "Invert"
+    override val gCenter = "Set center here"
+    override val gRange = "Sensitivity (tilt degrees to full range)"
+    override val gNoSensor = "This phone has no accelerometer"
+    override val gPad = "Touch pad"
+    override val gPadHint = "Up/down = height, left/right = front/back seesaw. The car's eyes follow your finger"
+    override val gDance = "Dance to music"
+    override val gDanceHint = "Play music out loud; the mic catches the beat and the car dances with body, eyes and lights"
+    override val gDanceStart = "Start dancing"
+    override val gDanceStop = "Stop dancing"
+    override val gMicDenied = "Microphone permission denied"
+    override val gRec = "Record motion"
+    override val gRecHint = "Move with the pad or tilt, record it, and replay it any time"
+    override val gRecStart = "Start recording"
+    override val gRecStop = "Stop & save"
+    override val gRecording = "Recording..."
+    override val gName = "Motion name"
+    override val gMotions = "Saved motions"
+    override val gPlay = "Play"
+    override val gStopPlay = "Stop"
+    override val gLoop = "Loop"
+    override val gDelete = "Delete"
+    override val gNoMotions = "No motions yet"
+    override val gSound = "Sound"
+    override val gEngine = "Engine sound (follows body height)"
+    override val gHorn = "Horn"
+    override val gVoice = "Robot speaks (reads its lines)"
+    override val gFx = "Emotion sound effects"
+    override val gVoiceNote = "Persian speech depends on the phone voice engine; if it is missing, lines are not read"
+
     override val ctrlManual = "Manual"
     override val ctrlGame = "Game"
     override val ctrlSoon = "Soon"
     override val ctrlHintManual = "The servos are yours; play with the pneumatic buttons however you like"
-    override val ctrlHintGame = "Play with the car using your phone: tilt it, drive it on the touch pads, make it dance to music or record your moves. Pneumatic buttons are off"
 
     override val lHold = "High beam flash (hold)"
     override val sNow = "Now"
