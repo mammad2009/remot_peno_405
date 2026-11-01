@@ -102,7 +102,7 @@ fun PressBox(
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(shape)
             .background(Brush.verticalGradient(listOf(accent.copy(alpha = top), accent.copy(alpha = bottom))))
-            .border(1.dp, accent.copy(alpha = if (pressed) 1f else 0.55f), shape)
+            .border(1.dp, Brush.verticalGradient(listOf(accent.copy(alpha = if (pressed) 1f else 0.75f), accent.copy(alpha = if (pressed) 0.8f else 0.22f))), shape)
             .pointerInput(enabled) {
                 detectTapGestures(onPress = {
                     if (enabled) {
@@ -157,13 +157,15 @@ fun Header(vm: MainViewModel, onConnect: () -> Unit, onRemote: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(S.appTitle, fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color.White, maxLines = 1)
+                Text("PEUGEOT  405  GLX", fontSize = 9.5.sp, letterSpacing = 3.sp, color = Gold, fontWeight = FontWeight.Medium, maxLines = 1)
+                Spacer(Modifier.height(2.dp))
+                Text(S.appTitle, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, color = Silver, maxLines = 1)
                 Text(S.appSubtitle, fontSize = 11.sp, color = Steel, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             // تغییر سریع زبان
             Box(
-                Modifier.size(40.dp).clip(CircleShape).background(Panel)
-                    .border(1.dp, Color(0x33FFFFFF), CircleShape)
+                Modifier.size(40.dp).clip(CircleShape).background(Surface2)
+                    .border(1.dp, Hair2, CircleShape)
                     .clickable { vm.switchLang(if (vm.lang == "fa") "en" else "fa") },
                 contentAlignment = Alignment.Center
             ) {
@@ -177,7 +179,7 @@ fun Header(vm: MainViewModel, onConnect: () -> Unit, onRemote: () -> Unit) {
                 null -> Steel
             }
             Box(
-                Modifier.size(40.dp).clip(CircleShape).background(Panel)
+                Modifier.size(40.dp).clip(CircleShape).background(Surface2)
                     .border(1.dp, tint.copy(alpha = 0.6f), CircleShape)
                     .clickable { onRemote() },
                 contentAlignment = Alignment.Center
@@ -188,8 +190,8 @@ fun Header(vm: MainViewModel, onConnect: () -> Unit, onRemote: () -> Unit) {
             }
             Spacer(Modifier.width(8.dp))
             Row(
-                Modifier.clip(RoundedCornerShape(50)).background(Panel)
-                    .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(50))
+                Modifier.clip(RoundedCornerShape(50)).background(Surface2)
+                    .border(1.dp, Hair2, RoundedCornerShape(50))
                     .clickable { onConnect() }.padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -200,7 +202,7 @@ fun Header(vm: MainViewModel, onConnect: () -> Unit, onRemote: () -> Unit) {
         }
         Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                S.status(vm.statusType, vm.statusArg), fontSize = 11.sp, color = Color(0xFF6B7385),
+                S.status(vm.statusType, vm.statusArg), fontSize = 11.sp, color = Steel,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)
             )
             vm.battery?.let { b ->
@@ -366,14 +368,14 @@ fun AxleCapsule(
     val shape = RoundedCornerShape(36.dp)
     Column(
         modifier.clip(shape)
-            .background(Brush.verticalGradient(listOf(Color(0xFF15181E), Color(0xFF08090C))))
-            .border(1.dp, Brush.verticalGradient(listOf(accent.copy(alpha = 0.75f), accent.copy(alpha = 0.10f))), shape)
+            .background(Brush.verticalGradient(listOf(Surface3, Panel, Bg)))
+            .border(1.dp, Brush.verticalGradient(listOf(accent.copy(alpha = 0.75f), accent.copy(alpha = 0.06f))), shape)
             .padding(horizontal = 8.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
-        Text(tag, fontSize = 9.sp, letterSpacing = 2.sp, color = accent.copy(alpha = 0.75f))
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = Silver)
+        Text(tag, fontSize = 9.sp, letterSpacing = 3.sp, color = accent.copy(alpha = 0.8f))
         val bm = Modifier.fillMaxWidth().height(50.dp)
         AxleButton(upFast, accent, true, true, onPress, onHoldStart, onHoldEnd, bm)
         AxleButton(upSlow, accent, true, false, onPress, onHoldStart, onHoldEnd, bm)
@@ -395,15 +397,15 @@ fun AllCapsule(
     val shape = RoundedCornerShape(36.dp)
     Column(
         modifier.clip(shape)
-            .background(Brush.verticalGradient(listOf(Color(0xFF16181D), Color(0xFF08090C))))
-            .border(1.dp, Brush.verticalGradient(listOf(Silver.copy(alpha = 0.6f), Silver.copy(alpha = 0.08f))), shape)
+            .background(Brush.verticalGradient(listOf(Surface3, Panel, Bg)))
+            .border(1.dp, Brush.verticalGradient(listOf(Silver.copy(alpha = 0.6f), Silver.copy(alpha = 0.05f))), shape)
             .padding(horizontal = 8.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(S.both, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
-            Text("SYNC", fontSize = 9.sp, letterSpacing = 2.sp, color = Silver.copy(alpha = 0.7f))
+            Text(S.both, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = Silver)
+            Text("SYNC", fontSize = 9.sp, letterSpacing = 3.sp, color = Silver.copy(alpha = 0.7f))
         }
         PressBox(
             Modifier.fillMaxWidth().height(70.dp), Silver, filled = true, enabled = bothUp != null,
@@ -465,7 +467,7 @@ fun ShowroomCard(vm: MainViewModel) {
 
     Box(
         Modifier.fillMaxWidth().clip(shape)
-            .background(Brush.linearGradient(listOf(Color(0xFF2B2108), Color(0xFF0E0A12), Color(0xFF1B1433))))
+            .background(Brush.linearGradient(listOf(Color(0xFF2A2312), Color(0xFF0C0C0F), Color(0xFF16141F))))
             .border(1.5.dp, Brush.linearGradient(listOf(Gold, Violet, Gold)), shape)
             .clickable { vm.toggleShowroom() }
     ) {
@@ -500,7 +502,7 @@ fun ShowroomCard(vm: MainViewModel) {
         Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(S.showSub, color = Gold, fontSize = 10.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
-                Text(S.showTitle, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                Text(S.showTitle, color = Silver, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
                 Text(S.showDesc, color = Silver.copy(alpha = 0.75f), fontSize = 11.5.sp, lineHeight = 16.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
                     for (e in listOf("😎", "😍", "😱", "😠", "🥳", "✨")) Text(e, fontSize = 17.sp)
@@ -573,8 +575,7 @@ private fun ModeSwitch(vm: MainViewModel) {
     val shape = RoundedCornerShape(24.dp)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
-            Modifier.fillMaxWidth().clip(shape).background(Panel)
-                .border(1.dp, Color(0x22FFFFFF), shape).padding(5.dp),
+            Modifier.fillMaxWidth().luxPanel(shape).padding(5.dp),
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             ModeSeg("🎮", S.ctrlManual, vm.ctrlMode == 0, Cyan, true, Modifier.weight(1f)) { vm.setMode(0) }

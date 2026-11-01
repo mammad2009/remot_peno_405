@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -28,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -54,7 +56,13 @@ class MainActivity : ComponentActivity() {
             // زبان فارسی = راست‌به‌چپ ، انگلیسی = چپ‌به‌راست
             val dir = if (vm.lang == "en") LayoutDirection.Ltr else LayoutDirection.Rtl
             CompositionLocalProvider(LocalLayoutDirection provides dir, LocalStrings provides vm.strings) {
-                MaterialTheme(colorScheme = darkColorScheme(primary = Cyan, background = Bg, surface = Panel)) {
+                MaterialTheme(
+                    colorScheme = darkColorScheme(
+                        primary = Cyan, onPrimary = Bg, secondary = Gold, tertiary = Violet,
+                        background = Bg, onBackground = Silver, surface = Panel, onSurface = Silver,
+                        surfaceVariant = Surface3, onSurfaceVariant = Steel, outline = Hair2, error = Danger
+                    )
+                ) {
                     AppRoot(vm, this@MainActivity::openWifiSettings)
                 }
             }
@@ -143,32 +151,33 @@ fun MenuLayer(
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
             Header(vm, onConnect, onRemote)
-            when (vm.tab) {
-                0 -> ControlScreen(vm)
-                1 -> LightsScreen(vm)
-                2 -> MenuScreen(vm, onExit = { vm.selectTab(0) })
-                else -> SettingsScreen(vm)
+            Crossfade(targetState = vm.tab, animationSpec = tween(260), label = "tab") { t ->
+                when (t) {
+                    0 -> ControlScreen(vm)
+                    1 -> LightsScreen(vm)
+                    2 -> MenuScreen(vm, onExit = { vm.selectTab(0) })
+                    else -> SettingsScreen(vm)
+                }
             }
         }
     }
 }
 
-// ---------- نوار پایین شناور و مدرن ----------
+// ---------- نوار پایین: گرافیتی با خط نشانگر نقره‌ای زیر تب فعال ----------
 
 @Composable
 fun FloatingNav(tab: Int, onTab: (Int) -> Unit) {
     val S = LocalStrings.current
-    val shape = RoundedCornerShape(28.dp)
+    val shape = RoundedCornerShape(26.dp)
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
-            .clip(shape).background(Panel.copy(alpha = 0.94f))
-            .border(1.dp, Color(0x22FFFFFF), shape).padding(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)
+            .luxPanel(shape).padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         NavItem(tab == 0, S.navControl, Cyan, Modifier.weight(1f), { onTab(0) }) { tint ->
             Icon(Icons.Default.Home, null, tint = tint)
         }
-        NavItem(tab == 1, S.navLights, Color(0xFFBFE8FF), Modifier.weight(1f), { onTab(1) }) { tint ->
+        NavItem(tab == 1, S.navLights, Cyan, Modifier.weight(1f), { onTab(1) }) { tint ->
             Canvas(Modifier.size(24.dp)) { drawBulbIcon(tint) }
         }
         NavItem(tab == 2, S.navMenu, Gold, Modifier.weight(1f), { onTab(2) }) { tint ->
@@ -185,17 +194,22 @@ private fun NavItem(
     selected: Boolean, label: String, accent: Color, modifier: Modifier,
     onClick: () -> Unit, icon: @Composable (Color) -> Unit
 ) {
-    val a by animateFloatAsState(if (selected) 1f else 0f, tween(250), label = "nav")
+    val a by animateFloatAsState(if (selected) 1f else 0f, tween(300), label = "nav")
     val tint = lerp(Grey, accent, a)
     Column(
-        modifier.clip(RoundedCornerShape(22.dp))
-            .background(accent.copy(alpha = 0.15f * a))
+        modifier.clip(RoundedCornerShape(20.dp))
+            .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.16f * a), Color.Transparent)))
             .clickable { onClick() }
-            .padding(vertical = 8.dp),
+            .padding(top = 8.dp, bottom = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         icon(tint)
-        Text(label, color = tint, fontSize = 11.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
+        Text(label, color = tint, fontSize = 10.5.sp, letterSpacing = 0.4.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
+        Spacer(Modifier.height(4.dp))
+        Box(
+            Modifier.width((26f * a).dp).height(2.dp).clip(RoundedCornerShape(1.dp))
+                .background(accent.copy(alpha = a))
+        )
     }
 }
 
@@ -242,6 +256,10 @@ fun ConnectDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = Surface2,
+        shape = RoundedCornerShape(28.dp),
+        titleContentColor = Silver,
+        textContentColor = Silver,
         confirmButton = { TextButton(onClick = onDismiss) { Text(S.close) } },
         dismissButton = {
             if (vm.connected) TextButton(onClick = { vm.disconnect(); onDismiss() }) { Text(S.disconnect) }
@@ -254,11 +272,14 @@ fun ConnectDialog(
                     (if (vm.wifiReady) "\uD83D\uDFE2 " + S.wifiOn else "\uD83D\uDD34 " + S.wifiOffTxt),
                     fontSize = 13.sp, color = if (vm.wifiReady) Ok else Danger
                 )
-                Button(onClick = onOpenWifi) { Text(S.openWifi) }
-                Button(
-                    onClick = { vm.connect(); onDismiss() },
-                    enabled = !vm.connecting && !vm.connected
-                ) { Text(S.connectNow) }
+                PillButton(
+                    S.openWifi, Cyan, false, true, Modifier.fillMaxWidth(), 48.dp,
+                    onClick = onOpenWifi
+                )
+                PillButton(
+                    S.connectNow, Cyan, true, !vm.connecting && !vm.connected, Modifier.fillMaxWidth(), 52.dp,
+                    onClick = { vm.connect(); onDismiss() }
+                )
                 Text(S.connectHint, fontSize = 11.sp, color = Grey)
                 Text(S.status(vm.statusType, vm.statusArg), fontSize = 11.sp, color = Grey)
             }
@@ -268,11 +289,9 @@ fun ConnectDialog(
 
 @Composable
 fun CardBox(accent: Color, active: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(26.dp)
     Column(
-        Modifier.fillMaxWidth().clip(shape).background(Panel)
-            .border(1.dp, accent.copy(alpha = if (active) 0.9f else 0.25f), shape)
-            .padding(16.dp),
+        Modifier.fillMaxWidth().luxPanel(shape, accent, active).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content
     )
@@ -281,11 +300,11 @@ fun CardBox(accent: Color, active: Boolean = false, content: @Composable ColumnS
 @Composable
 fun CardTitle(title: String, tag: String, accent: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(width = 4.dp, height = 18.dp).clip(RoundedCornerShape(2.dp)).background(accent))
-        Spacer(Modifier.width(8.dp))
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
+        Box(Modifier.size(width = 3.dp, height = 16.dp).clip(RoundedCornerShape(2.dp)).background(accent))
+        Spacer(Modifier.width(10.dp))
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, color = Silver)
         Spacer(Modifier.weight(1f))
-        Text(tag, fontSize = 11.sp, color = accent.copy(alpha = 0.7f))
+        Text(tag, fontSize = 9.5.sp, letterSpacing = 2.sp, color = accent.copy(alpha = 0.75f))
     }
 }
 
@@ -302,17 +321,17 @@ fun PillButton(
     onClick: () -> Unit = {},
     leading: @Composable () -> Unit = {}
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     var pressed by remember { mutableStateOf(false) }
-    val fg = if (filled) Color(0xFF0B0D12) else accent
+    val fg = if (filled) Color(0xFF0B0D12) else if (enabled) accent else Steel
     val down by rememberUpdatedState(onDown)
     val up by rememberUpdatedState(onUp)
     val click by rememberUpdatedState(onClick)
-    val bg = if (filled) accent.copy(alpha = if (pressed) 0.72f else 1f)
-             else accent.copy(alpha = if (pressed) 0.38f else 0.14f)
+    val bg = if (filled) Brush.verticalGradient(listOf(accent.copy(alpha = if (pressed) 0.70f else 1f), accent.copy(alpha = if (pressed) 0.55f else 0.78f)))
+             else Brush.verticalGradient(listOf(accent.copy(alpha = if (pressed) 0.34f else 0.16f), accent.copy(alpha = if (pressed) 0.20f else 0.04f)))
     Row(
         modifier.height(height).clip(shape).background(bg)
-            .border(1.dp, accent.copy(alpha = 0.55f), shape)
+            .border(1.dp, accent.copy(alpha = if (enabled) 0.55f else 0.2f), shape)
             .pointerInput(enabled) {
                 detectTapGestures(onPress = {
                     if (enabled) {
@@ -334,7 +353,7 @@ fun PillButton(
         horizontalArrangement = Arrangement.Center
     ) {
         leading()
-        Text(label, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1)
+        Text(label, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, letterSpacing = 0.3.sp, maxLines = 1)
     }
 }
 
@@ -368,8 +387,8 @@ private fun LangChip(label: String, selected: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
     Box(
         Modifier.clip(shape)
-            .background(if (selected) Cyan.copy(alpha = 0.22f) else Color(0xFF1A2230))
-            .border(1.dp, if (selected) Cyan else Color(0x22FFFFFF), shape)
+            .background(if (selected) Cyan.copy(alpha = 0.18f) else Surface3)
+            .border(1.dp, if (selected) Cyan else Hair2, shape)
             .clickable { onClick() }
             .padding(horizontal = 18.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center
@@ -410,7 +429,7 @@ fun SettingsScreen(vm: MainViewModel) {
             }
         }
         items(vm.commands, key = { it.id }) { c ->
-            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Panel)) {
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Surface2)) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("${S.group(c.group)} \u2022 ${S.cmdLabel(c)}")

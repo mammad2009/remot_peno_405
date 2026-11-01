@@ -61,7 +61,7 @@ private val EMOTES = listOf(
     7 to "😊", 9 to "🤩", 25 to "😂", 28 to "😍", 16 to "😉", 14 to "😲", 15 to "😱",
     10 to "😠", 11 to "😢", 20 to "😏", 32 to "😈", 30 to "😵", 12 to "🥱"
 )
-private val Line = Color(0x22FFFFFF)
+private val Line = Hair
 
 // ======================================================================
 //  «i-Cockpit 405» : کابین بازی ماکت
@@ -101,8 +101,7 @@ fun GamePanel(vm: MainViewModel) {
         CockpitHeader(vm, en)
 
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Panel)
-                .border(1.dp, Line, RoundedCornerShape(22.dp)).padding(5.dp),
+            Modifier.fillMaxWidth().luxPanel(RoundedCornerShape(22.dp)).padding(5.dp),
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             GameTab("🧭", tr("کج کردن", "Tilt"), g.sub == 0, Cyan, Modifier.weight(1f)) { g.sub = 0 }
@@ -148,14 +147,14 @@ private fun CockpitHeader(vm: MainViewModel, en: Boolean) {
     val words = TEXTS.getOrNull(g.wordsIdx)?.name(S)
     Row(
         Modifier.fillMaxWidth().clip(shape)
-            .background(Brush.horizontalGradient(listOf(Cyan.copy(alpha = 0.16f), Violet.copy(alpha = 0.12f))))
-            .border(1.dp, Cyan.copy(alpha = 0.35f), shape).padding(14.dp),
+            .background(Brush.horizontalGradient(listOf(Cyan.copy(alpha = 0.12f), Surface2)))
+            .border(1.dp, Brush.verticalGradient(listOf(Cyan.copy(alpha = 0.5f), Hair)), shape).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(mood, fontSize = 38.sp)
         Column(Modifier.weight(1f)) {
-            Text("i-COCKPIT  405", color = Cyan, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
+            Text("i-COCKPIT  405", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 3.sp)
             Text(
                 words?.let { "💬 $it" } ?: if (en) "Your phone is the cockpit. Drive the car's body, eyes and mood."
                 else "گوشی تو کابینه؛ بدنه، چشم‌ها و حال ماکت دست توئه.",
@@ -183,7 +182,7 @@ private fun GameTab(icon: String, label: String, selected: Boolean, accent: Colo
 private fun GameCard(content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(22.dp)
     Column(
-        Modifier.fillMaxWidth().clip(shape).background(Panel).border(1.dp, Line, shape).padding(14.dp),
+        Modifier.fillMaxWidth().luxPanel(shape).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) { content() }
 }
@@ -415,7 +414,7 @@ private fun BeatPane(g: GameController, en: Boolean) {
         Text(tr("حساسیت ضرب", "Beat sensitivity"), color = Steel, fontSize = 11.sp)
         Slider(
             value = sens, onValueChange = { sens = it; g.beat.sensitivity = it },
-            colors = SliderDefaults.colors(thumbColor = Gold, activeTrackColor = Gold, inactiveTrackColor = Color(0x22FFFFFF))
+            colors = SliderDefaults.colors(thumbColor = Gold, activeTrackColor = Gold, inactiveTrackColor = Hair)
         )
     }
     Text(

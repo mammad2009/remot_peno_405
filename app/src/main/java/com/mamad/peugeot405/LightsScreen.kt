@@ -138,7 +138,7 @@ private fun LightCarView(vm: MainViewModel, clock: () -> Long) {
     Box(
         Modifier.fillMaxWidth().height(230.dp).clip(shape)
             .background(Brush.verticalGradient(listOf(Color(0xFF0D1118), Color(0xFF07080B))))
-            .border(1.dp, Color(0x22FFFFFF), shape)
+            .border(1.dp, Hair, shape)
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
@@ -241,7 +241,7 @@ private fun RoundLightButton(label: String, kind: Int, on: Boolean, color: Color
                     if (on) Brush.radialGradient(listOf(color.copy(alpha = 0.40f), color.copy(alpha = 0.10f)))
                     else Brush.radialGradient(listOf(Color(0xFF1B212C), Color(0xFF10141B)))
                 )
-                .border(if (on) 2.dp else 1.dp, if (on) color else Color(0x33FFFFFF), CircleShape)
+                .border(if (on) 2.dp else 1.dp, if (on) color else Hair2, CircleShape)
                 .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -298,8 +298,8 @@ private fun TurnButton(label: String, mode: Int, on: Boolean, clock: () -> Long,
         val shape = RoundedCornerShape(16.dp)
         Box(
             Modifier.size(62.dp).clip(shape)
-                .background(if (on) Amber.copy(alpha = 0.22f) else Color(0xFF141922))
-                .border(if (on) 2.dp else 1.dp, if (on) Amber else Color(0x33FFFFFF), shape)
+                .background(if (on) Amber.copy(alpha = 0.22f) else Surface2)
+                .border(if (on) 2.dp else 1.dp, if (on) Amber else Hair2, shape)
                 .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -320,8 +320,8 @@ private fun ShowCard(fx: Named, selected: Boolean, clock: () -> Long, onClick: (
     val shape = RoundedCornerShape(18.dp)
     Column(
         Modifier.width(104.dp).clip(shape)
-            .background(if (selected) Violet.copy(alpha = 0.20f) else Color(0xFF141922))
-            .border(if (selected) 2.dp else 1.dp, if (selected) Violet else Color(0x33FFFFFF), shape)
+            .background(if (selected) Violet.copy(alpha = 0.20f) else Surface2)
+            .border(if (selected) 2.dp else 1.dp, if (selected) Violet else Hair2, shape)
             .clickable { onClick() }.padding(vertical = 12.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -346,7 +346,7 @@ private fun HoldHighButton(vm: MainViewModel) {
     val shape = RoundedCornerShape(50)
     Row(
         Modifier.fillMaxWidth().height(58.dp).clip(shape)
-            .background(if (pressed) Color.White.copy(alpha = 0.26f) else Color(0xFF141922))
+            .background(if (pressed) Color.White.copy(alpha = 0.26f) else Surface2)
             .border(if (pressed) 2.dp else 1.dp, if (pressed) Color.White else Color(0x55FFFFFF), shape)
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {

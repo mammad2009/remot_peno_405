@@ -149,7 +149,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(Modifier.height(18.dp))
             Box(
                 Modifier.width((150f * lineIn).dp).height(1.dp)
-                    .background(Brush.horizontalGradient(listOf(Color.Transparent, Cyan, Color.Transparent)))
+                    .background(Brush.horizontalGradient(listOf(Color.Transparent, Gold, Color.Transparent)))
             )
             Spacer(Modifier.height(10.dp))
             Text(

@@ -107,7 +107,7 @@ private fun PageHeader(title: String, accent: Color, onBack: () -> Unit) {
             }
         }
         Spacer(Modifier.width(12.dp))
-        Text(title, fontWeight = FontWeight.Black, fontSize = 20.sp, color = Color.White)
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Silver)
     }
 }
 
@@ -148,7 +148,7 @@ private fun ValueSlider(
             onValueChangeFinished = onFinish,
             colors = SliderDefaults.colors(
                 thumbColor = accent, activeTrackColor = accent,
-                inactiveTrackColor = Color(0xFF232A36)
+                inactiveTrackColor = Surface4
             )
         )
     }
@@ -191,14 +191,14 @@ private fun MenuTile(
     val shape = RoundedCornerShape(22.dp)
     Column(
         modifier.height(132.dp).clip(shape)
-            .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.16f), Panel)))
-            .border(1.dp, accent.copy(alpha = 0.45f), shape)
+            .background(Brush.verticalGradient(listOf(Surface3, Panel)))
+            .border(1.dp, Brush.verticalGradient(listOf(accent.copy(alpha = 0.55f), Hair)), shape)
             .clickable { onClick() }.padding(14.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Text(icon, fontSize = 30.sp)
         Column {
-            Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2)
+            Text(title, color = Silver, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 2)
             Text(subtitle, color = accent, fontSize = 11.sp, maxLines = 1)
         }
     }
@@ -271,7 +271,7 @@ private fun StepBtn(label: String, accent: Color, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Box(
         Modifier.size(width = 46.dp, height = 40.dp).clip(shape)
-            .background(Color(0xFF1A2230)).border(1.dp, accent.copy(alpha = 0.6f), shape)
+            .background(Surface3).border(1.dp, accent.copy(alpha = 0.6f), shape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
@@ -307,7 +307,7 @@ private fun AngleRow(
             onValueChange = { set(Math.round(it)) },
             valueRange = lo.toFloat()..hi.toFloat(),
             colors = SliderDefaults.colors(
-                thumbColor = accent, activeTrackColor = accent, inactiveTrackColor = Color(0xFF232A36)
+                thumbColor = accent, activeTrackColor = accent, inactiveTrackColor = Surface4
             )
         )
     }
@@ -425,8 +425,8 @@ private fun ItemGrid(
                     val shape = RoundedCornerShape(16.dp)
                     Column(
                         Modifier.weight(1f).height(78.dp).clip(shape)
-                            .background(if (sel) accent.copy(alpha = 0.22f) else Color(0xFF141922))
-                            .border(if (sel) 2.dp else 1.dp, if (sel) accent else Color(0x33FFFFFF), shape)
+                            .background(if (sel) accent.copy(alpha = 0.22f) else Surface2)
+                            .border(if (sel) 2.dp else 1.dp, if (sel) accent else Hair2, shape)
                             .clickable { onPick(item.id) }.padding(6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
@@ -454,8 +454,8 @@ private fun TextList(items: List<Named>, selected: Int, accent: Color, onPick: (
             val en = S.lang == "en"
             Row(
                 Modifier.fillMaxWidth().clip(shape)
-                    .background(if (sel) accent.copy(alpha = 0.20f) else Color(0xFF141922))
-                    .border(if (sel) 2.dp else 1.dp, if (sel) accent else Color(0x22FFFFFF), shape)
+                    .background(if (sel) accent.copy(alpha = 0.20f) else Surface2)
+                    .border(if (sel) 2.dp else 1.dp, if (sel) accent else Hair, shape)
                     .clickable { onPick(item.id) }.padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -495,8 +495,8 @@ private fun EffectsPage(vm: MainViewModel, onBack: () -> Unit) {
                     val shape = RoundedCornerShape(50)
                     Box(
                         Modifier.clip(shape)
-                            .background(if (sel) Violet.copy(alpha = 0.25f) else Color(0xFF1A2230))
-                            .border(1.dp, if (sel) Violet else Color(0x22FFFFFF), shape)
+                            .background(if (sel) Violet.copy(alpha = 0.25f) else Surface3)
+                            .border(1.dp, if (sel) Violet else Hair, shape)
                             .clickable { tab = k; picked = -1 }
                             .padding(horizontal = 16.dp, vertical = 9.dp),
                         contentAlignment = Alignment.Center
@@ -632,7 +632,7 @@ private fun BatteryPage(vm: MainViewModel, onBack: () -> Unit) {
 private fun SimChip(label: String, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
     Box(
-        Modifier.clip(shape).background(Color(0xFF1A2230)).border(1.dp, Violet.copy(alpha = 0.6f), shape)
+        Modifier.clip(shape).background(Surface3).border(1.dp, Violet.copy(alpha = 0.6f), shape)
             .clickable { onClick() }.padding(horizontal = 18.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
