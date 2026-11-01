@@ -238,11 +238,11 @@ class GameController(
         bounceJob?.cancel()
         val amp = s / 100f
         bounceFlip = !bounceFlip
-        val up = (danceH + 45f * amp).roundToInt().coerceIn(0, 100)
-        val tiltD = ((if (bounceFlip) 1 else -1) * 70f * amp).roundToInt()
+        val up = (danceH + 65f * amp).roundToInt().coerceIn(0, 100)
+        val tiltD = ((if (bounceFlip) 1 else -1) * 100f * amp).roundToInt()
         bounceJob = scope.launch {
             h = up; d = tiltD
-            delay(150)
+            delay(170)
             h = danceH; d = tiltD / 3
         }
     }

@@ -255,38 +255,33 @@ fun ControlScreen(vm: MainViewModel) {
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item { ModeSwitch(vm) }
-            item { LogoStage({ vm.sim.dispF }, { vm.sim.dispB }, vm.sim.maybachOn) }
+            item { HeroDial({ vm.sim.dispF }, { vm.sim.dispB }, pctF, pctB, vm.sim.maybachOn) }
             if (gameOn) {
                 // حالت بازی: کابین «i-Cockpit 405» جای دکمه‌های پنوماتیک میاد
                 item(key = "game") { GamePanel(vm) }
             } else {
                 item {
-                    // چیدمان راست به چپ: جلو (سمت راست مثل ماشین)، عقب، و ستون «هر دو» سمت چپ
-                    Row(
-                        Modifier.fillMaxWidth().height(392.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        AxleCapsule(
-                            S.front, "FRONT", Cyan,
-                            find("F_UP_S"), find("F_UP_F"), find("F_DN_S"), find("F_DN_F"),
-                            { (vm.sim.dispF - 80f) / 32f }, pctF,
-                            vm::press, vm::press, vm::pressUp,
-                            Modifier.weight(1f).fillMaxHeight()
-                        )
-                        AxleCapsule(
-                            S.rear, "REAR", Violet,
-                            find("R_UP_S"), find("R_UP_F"), find("R_DN_S"), find("R_DN_F"),
-                            { (vm.sim.dispB - 84f) / 31f }, pctB,
-                            vm::press, vm::press, vm::pressUp,
-                            Modifier.weight(1f).fillMaxHeight()
-                        )
-                        AllCapsule(
-                            find("BOTH_UP"), find("BOTH_DN"), find("FACTORY"),
-                            find("M_ON"), find("M_OFF"), vm.sim.maybachOn,
-                            vm::press, vm::pressUp, vm::factory, vm::press,
-                            Modifier.weight(0.9f).fillMaxHeight()
-                        )
-                    }
+                    AxleConsole(
+                        S.front, "FRONT", Cyan,
+                        find("F_UP_S"), find("F_UP_F"), find("F_DN_S"), find("F_DN_F"),
+                        { (vm.sim.dispF - 80f) / 32f }, pctF,
+                        vm::press, vm::press, vm::pressUp
+                    )
+                }
+                item {
+                    AxleConsole(
+                        S.rear, "REAR", Violet,
+                        find("R_UP_S"), find("R_UP_F"), find("R_DN_S"), find("R_DN_F"),
+                        { (vm.sim.dispB - 84f) / 31f }, pctB,
+                        vm::press, vm::press, vm::pressUp
+                    )
+                }
+                item {
+                    BothConsole(
+                        find("BOTH_UP"), find("BOTH_DN"), find("FACTORY"),
+                        find("M_ON"), find("M_OFF"), vm.sim.maybachOn,
+                        vm::press, vm::pressUp, vm::factory, vm::press
+                    )
                 }
                 item { ShowroomCard(vm) }
                 groups.forEach { (name, list) ->
