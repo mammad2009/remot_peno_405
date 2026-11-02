@@ -1,6 +1,14 @@
 package com.mamad.peugeot405
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,9 +33,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -46,11 +57,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +74,9 @@ import kotlinx.coroutines.delay
  * منوی ماکت = حالت کارخانه.
  * وقتی این تب باز است ماکت کف‌خواب است (فرمان Y) و از اینجا همه‌چیزش را تنظیم می‌کنی.
  * خروج از تب (یا بستن برنامه) = فرمان V.
+ *
+ * طراحی «Maison 405»: هاب به‌صورت چهار ماژول بزرگ با پیش‌نمایش زنده‌ی مقدار ،
+ * آیکن‌های خطی (Canvas) ، گیج‌ها و نوارهای بازه‌ی زاویه ، بدون ایموجی در نقش آیکن.
  */
 @Composable
 fun MenuScreen(vm: MainViewModel, onExit: () -> Unit) {
@@ -74,27 +91,102 @@ fun MenuScreen(vm: MainViewModel, onExit: () -> Unit) {
         }
     }
 
-    when (page) {
-        0 -> MenuHub(vm, onExit) { page = it }
-        1 -> SuspensionPage(vm) { page = 0 }
-        2 -> EffectsPage(vm) { page = 0 }
-        3 -> BatteryPage(vm) { page = 0 }
-        else -> SystemPage(vm) { page = 0 }
+    Crossfade(targetState = page, animationSpec = tween(280), label = "menuPage") { p ->
+        when (p) {
+            0 -> MenuHub(vm, onExit) { page = it }
+            1 -> SuspensionPage(vm) { page = 0 }
+            2 -> EffectsPage(vm) { page = 0 }
+            3 -> BatteryPage(vm) { page = 0 }
+            else -> SystemPage(vm) { page = 0 }
+        }
     }
 }
 
-// ---------------- اجزای مشترک ----------------
+// ======================================================================
+//  اجزای مشترک
+// ======================================================================
 
 @Composable
-private fun PageHeader(title: String, accent: Color, onBack: () -> Unit) {
+private fun Eyebrow(text: String, color: Color) {
+    Text(text, color = color, fontSize = 9.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+}
+
+// آیکن‌های خطی ماژول‌ها: 0 تعلیق ، 1 چشم‌ها ، 2 باتری ، 3 سیستم
+private fun DrawScope.menuIcon(kind: Int, c: Color) {
+    val w = size.width
+    val h = size.height
+    val sw = w * 0.085f
+    when (kind) {
+        0 -> {
+            val p = Path()
+            p.moveTo(w * 0.5f, h * 0.06f)
+            p.lineTo(w * 0.22f, h * 0.24f)
+            p.lineTo(w * 0.78f, h * 0.40f)
+            p.lineTo(w * 0.22f, h * 0.56f)
+            p.lineTo(w * 0.78f, h * 0.72f)
+            p.lineTo(w * 0.5f, h * 0.94f)
+            drawPath(p, c, style = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+        1 -> {
+            drawCircle(c, w * 0.20f, Offset(w * 0.28f, h * 0.5f), style = Stroke(sw))
+            drawCircle(c, w * 0.20f, Offset(w * 0.72f, h * 0.5f), style = Stroke(sw))
+            drawCircle(c, w * 0.07f, Offset(w * 0.31f, h * 0.5f))
+            drawCircle(c, w * 0.07f, Offset(w * 0.75f, h * 0.5f))
+        }
+        2 -> {
+            drawRoundRect(c, Offset(w * 0.08f, h * 0.28f), Size(w * 0.78f, h * 0.44f), CornerRadius(w * 0.09f), style = Stroke(sw))
+            drawRoundRect(c, Offset(w * 0.88f, h * 0.42f), Size(w * 0.07f, h * 0.16f), CornerRadius(w * 0.02f))
+            drawRoundRect(c, Offset(w * 0.16f, h * 0.37f), Size(w * 0.34f, h * 0.26f), CornerRadius(w * 0.03f))
+        }
+        else -> {
+            val ctr = Offset(w / 2f, h / 2f)
+            val r = w * 0.26f
+            drawCircle(c, r, ctr, style = Stroke(sw))
+            drawCircle(c, r * 0.35f, ctr, style = Stroke(sw))
+            for (k in 0 until 8) {
+                val a = k * 0.7853982f
+                val dx = kotlin.math.cos(a)
+                val dy = kotlin.math.sin(a)
+                drawLine(
+                    c, Offset(ctr.x + dx * r * 1.2f, ctr.y + dy * r * 1.2f),
+                    Offset(ctr.x + dx * r * 1.7f, ctr.y + dy * r * 1.7f), sw * 1.3f, StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
+// فلش «به جلو» (فارسی چپ‌سو ، انگلیسی راست‌سو)
+@Composable
+private fun ForwardChevron(color: Color, modifier: Modifier = Modifier) {
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Canvas(modifier.size(14.dp)) {
+        val w = size.width
+        val h = size.height
+        val p = Path()
+        if (rtl) {
+            p.moveTo(w * 0.65f, h * 0.1f); p.lineTo(w * 0.25f, h * 0.5f); p.lineTo(w * 0.65f, h * 0.9f)
+        } else {
+            p.moveTo(w * 0.35f, h * 0.1f); p.lineTo(w * 0.75f, h * 0.5f); p.lineTo(w * 0.35f, h * 0.9f)
+        }
+        drawPath(p, color, style = Stroke(2.2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+@Composable
+private fun PageHeader(title: String, accent: Color, onBack: () -> Unit, tag: String = "") {
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Box(
-            Modifier.size(40.dp).clip(CircleShape).background(Panel)
-                .border(1.dp, accent.copy(alpha = 0.6f), CircleShape).clickable { onBack() },
+            Modifier.size(42.dp).clip(CircleShape).background(Surface2)
+                .border(1.dp, Brush.verticalGradient(listOf(accent.copy(alpha = 0.7f), Hair)), CircleShape)
+                .clickable { onBack() },
             contentAlignment = Alignment.Center
         ) {
-            Canvas(Modifier.size(18.dp)) {
+            Canvas(Modifier.size(16.dp)) {
                 val w = size.width
                 val h = size.height
                 val p = Path()
@@ -106,16 +198,61 @@ private fun PageHeader(title: String, accent: Color, onBack: () -> Unit) {
                 drawPath(p, accent, style = Stroke(3f, cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
         }
-        Spacer(Modifier.width(12.dp))
-        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Silver)
+        Spacer(Modifier.width(14.dp))
+        Column {
+            if (tag.isNotEmpty()) Eyebrow(tag, accent.copy(alpha = 0.85f))
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, color = Silver)
+        }
     }
+}
+
+// قاب مات یک بخش
+@Composable
+private fun Section(accent: Color, active: Boolean = false, content: @Composable () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().luxPanel(RoundedCornerShape(26.dp), accent, active).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) { content() }
+}
+
+@Composable
+private fun PulseDot(on: Boolean, color: Color, dotSize: Dp = 14.dp) {
+    val inf = rememberInfiniteTransition(label = "dot")
+    val t by inf.animateFloat(
+        0f, 1f, infiniteRepeatable(tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dotT"
+    )
+    Canvas(Modifier.size(dotSize)) {
+        val r = size.minDimension / 2f
+        if (on) drawCircle(color.copy(alpha = 0.40f * (1f - t)), r, center)
+        drawCircle(color, r * 0.5f, center)
+    }
+}
+
+@Composable
+private fun LuxDialog(title: String, text: String?, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val S = LocalStrings.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Surface2,
+        shape = RoundedCornerShape(28.dp),
+        titleContentColor = Silver,
+        textContentColor = Silver,
+        title = { Text(title, fontWeight = FontWeight.SemiBold) },
+        text = { if (text != null) Text(text, color = Steel, fontSize = 13.sp) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(S.save, color = Cyan) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(S.cancel, color = Steel) } }
+    )
 }
 
 @Composable
 private fun WaitingCard(vm: MainViewModel) {
     val S = LocalStrings.current
-    CardBox(Steel) {
-        Text(S.sWaiting, color = Steel, fontSize = 13.sp)
+    Section(Steel) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PulseDot(true, Gold)
+            Spacer(Modifier.width(10.dp))
+            Text(S.sWaiting, color = Steel, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        }
         PillButton(
             label = S.refresh, accent = Cyan, filled = false, enabled = true,
             modifier = Modifier.fillMaxWidth(), height = 46.dp, onClick = { vm.requestInfo() }
@@ -124,10 +261,13 @@ private fun WaitingCard(vm: MainViewModel) {
 }
 
 @Composable
-private fun InfoRow(label: String, value: String, valueColor: Color = Color.White) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = Steel, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Text(value, color = valueColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+private fun InfoRow(label: String, value: String, valueColor: Color = Silver) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Steel, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            Text(value, color = valueColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Hair))
     }
 }
 
@@ -138,8 +278,8 @@ private fun ValueSlider(
 ) {
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
-            Text("$value$unit", color = accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = Silver, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            Text("$value$unit", color = accent, fontSize = 22.sp, fontWeight = FontWeight.Light)
         }
         Slider(
             value = value.coerceIn(lo, hi).toFloat(),
@@ -181,26 +321,34 @@ private fun batteryCode(on: Boolean, lo: Int, cr: Int, ca: Int): String =
     "#define BAT_START_ON     " + (if (on) 1 else 0) + "\n#define BAT_LOW_PCT      $lo\n" +
         "#define BAT_CRIT_PCT     $cr\n#define BAT_CAL          " + (ca / 100) + "." + (ca % 100).toString().padStart(2, '0')
 
-// ---------------- صفحه‌ی خانه ----------------
+// ======================================================================
+//  صفحه‌ی خانه: وضعیت کارخانه + چهار ماژول
+// ======================================================================
 
 @Composable
-private fun MenuTile(
-    icon: String, title: String, subtitle: String, accent: Color,
-    modifier: Modifier, onClick: () -> Unit
+private fun ModuleRow(
+    kind: Int, tag: String, title: String, value: String, accent: Color, onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(22.dp)
-    Column(
-        modifier.height(132.dp).clip(shape)
-            .background(Brush.verticalGradient(listOf(Surface3, Panel)))
-            .border(1.dp, Brush.verticalGradient(listOf(accent.copy(alpha = 0.55f), Hair)), shape)
-            .clickable { onClick() }.padding(14.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+    Row(
+        Modifier.fillMaxWidth().luxPanel(RoundedCornerShape(26.dp), accent)
+            .clickable { onClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(icon, fontSize = 30.sp)
-        Column {
-            Text(title, color = Silver, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 2)
-            Text(subtitle, color = accent, fontSize = 11.sp, maxLines = 1)
+        Box(
+            Modifier.size(54.dp).clip(CircleShape)
+                .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.24f), accent.copy(alpha = 0.04f))))
+                .border(1.dp, accent.copy(alpha = 0.5f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(Modifier.size(26.dp)) { menuIcon(kind, accent) }
         }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Eyebrow(tag, accent.copy(alpha = 0.85f))
+            Text(title, color = Silver, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, maxLines = 1)
+            Text(value, color = Steel, fontSize = 12.sp, maxLines = 1)
+        }
+        ForwardChevron(Steel)
     }
 }
 
@@ -209,73 +357,122 @@ private fun MenuHub(vm: MainViewModel, onExit: () -> Unit, onOpen: (Int) -> Unit
     val S = LocalStrings.current
     var confirmAll by remember { mutableStateOf(false) }
     val i = vm.info
-    val suspSub = if (i.containsKey("rf")) "F ${i["rf"]}°–${i["xf"]}°  R ${i["rb"]}°–${i["xb"]}°" else "—"
+    val suspSub = if (i.containsKey("rf")) "F ${i["rf"]}°–${i["xf"]}°   R ${i["rb"]}°–${i["xb"]}°" else "—"
     val batSub = when {
         (i["bo"] ?: 0) == 1 -> "${i["bp"]}%"
         i.containsKey("bo") -> S.bOffText
         else -> "—"
     }
     val sysSub = if (i.containsKey("v")) "v${i["v"]}" else "—"
+    val effSub = "${POSES.size} • ${TEXTS.size} • ${SCENES.size}"
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         FactoryPreview()
-        CardBox(Cyan, active = vm.factoryActive) {
-            CardTitle(S.menuTitle, "FACTORY MODE", Cyan)
+
+        // وضعیت حالت کارخانه
+        Section(Cyan, active = vm.factoryActive) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(if (vm.factoryActive) Ok else Steel))
-                Spacer(Modifier.width(8.dp))
+                PulseDot(vm.factoryActive, if (vm.factoryActive) Ok else Steel, 16.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Eyebrow("FACTORY MODE", Cyan.copy(alpha = 0.85f))
+                    Text(S.menuTitle, color = Silver, fontWeight = FontWeight.SemiBold, fontSize = 20.sp)
+                }
                 Text(
                     if (vm.factoryActive) S.facActive else S.facInactive,
-                    color = if (vm.factoryActive) Ok else Steel, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                    color = if (vm.factoryActive) Ok else Steel, fontSize = 12.sp, fontWeight = FontWeight.Medium
                 )
             }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Hair))
             Text(if (vm.factoryActive) S.menuSub else S.facDesc, color = Steel, fontSize = 12.sp, lineHeight = 18.sp)
             if (!vm.connected) Text(S.facNeedConnect, color = Gold, fontSize = 12.sp)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MenuTile("🛞", S.mSuspension, suspSub, Cyan, Modifier.weight(1f)) { onOpen(1) }
-            MenuTile("👀", S.mEffects, "${POSES.size} • ${TEXTS.size} • ${SCENES.size}", Violet, Modifier.weight(1f)) { onOpen(2) }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MenuTile("🔋", S.mBattery, batSub, Ok, Modifier.weight(1f)) { onOpen(3) }
-            MenuTile("⚙️", S.mSystem, sysSub, Gold, Modifier.weight(1f)) { onOpen(4) }
-        }
+
+        ModuleRow(0, "SUSPENSION", S.mSuspension, suspSub, Cyan) { onOpen(1) }
+        ModuleRow(1, "EXPRESSION", S.mEffects, effSub, Violet) { onOpen(2) }
+        ModuleRow(2, "POWER", S.mBattery, batSub, Ok) { onOpen(3) }
+        ModuleRow(3, "SYSTEM", S.mSystem, sysSub, Gold) { onOpen(4) }
+
         PillButton(
             label = S.sysReset, accent = Danger, filled = false, enabled = vm.connected,
             modifier = Modifier.fillMaxWidth(), height = 50.dp, onClick = { confirmAll = true }
         )
         PillButton(
             label = S.facExit, accent = Cyan, filled = true, enabled = true,
-            modifier = Modifier.fillMaxWidth(), height = 52.dp, onClick = onExit
+            modifier = Modifier.fillMaxWidth(), height = 54.dp, onClick = onExit
         )
         Spacer(Modifier.height(8.dp))
     }
     if (confirmAll) {
-        AlertDialog(
-            onDismissRequest = { confirmAll = false },
-            title = { Text(S.sysReset) },
-            confirmButton = { TextButton(onClick = { vm.resetCarDefaults(); confirmAll = false }) { Text(S.save) } },
-            dismissButton = { TextButton(onClick = { confirmAll = false }) { Text(S.cancel) } }
-        )
+        LuxDialog(S.sysReset, null, { vm.resetCarDefaults(); confirmAll = false }, { confirmAll = false })
     }
 }
 
-// ---------------- تعلیق و سرووها ----------------
+// ======================================================================
+//  تعلیق و سرووها
+// ======================================================================
 
 // دکمه‌ی کوچک − و + برای تنظیم دقیق (هر لمس = همان لحظه فرمان به سروو)
 @Composable
-private fun StepBtn(label: String, accent: Color, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
+private fun StepKey(label: String, accent: Color, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
     Box(
         Modifier.size(width = 46.dp, height = 40.dp).clip(shape)
-            .background(Surface3).border(1.dp, accent.copy(alpha = 0.6f), shape)
+            .background(Brush.verticalGradient(listOf(Surface4, Surface3)))
+            .border(1.dp, Brush.verticalGradient(listOf(accent.copy(alpha = 0.7f), accent.copy(alpha = 0.15f))), shape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun TestChip(label: String, accent: Color, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    Box(
+        Modifier.clip(shape).background(accent.copy(alpha = 0.10f))
+            .border(1.dp, accent.copy(alpha = 0.5f), shape)
+            .clickable { onClick() }.padding(horizontal = 14.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = accent, fontSize = 11.5.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+    }
+}
+
+// نوار بازه‌ی حرکت: از کف‌خواب تا حداکثر ، خط وسط = ارتفاع متوسط ، نقطه‌ی سفید = زاویه‌ی لحظه‌ای سروو
+@Composable
+private fun RangeStrip(rest: Int, mid: Int, max: Int, now: Int?, accent: Color) {
+    Canvas(Modifier.fillMaxWidth().height(34.dp)) {
+        val lo = 50f
+        val hi = 150f
+        val w = size.width
+        val y = size.height * 0.45f
+        val th = 6.dp.toPx()
+        val rad = CornerRadius(th / 2f)
+        val xr = w * ((rest - lo) / (hi - lo)).coerceIn(0f, 1f)
+        val xm = w * ((mid - lo) / (hi - lo)).coerceIn(0f, 1f)
+        val xx = w * ((max - lo) / (hi - lo)).coerceIn(0f, 1f)
+        drawRoundRect(Hair, Offset(0f, y - th / 2f), Size(w, th), rad)
+        if (xx > xr) {
+            drawRoundRect(
+                Brush.horizontalGradient(listOf(accent.copy(alpha = 0.25f), accent), startX = xr, endX = xx.coerceAtLeast(xr + 1f)),
+                Offset(xr, y - th / 2f), Size(xx - xr, th), rad
+            )
+        }
+        drawLine(accent, Offset(xm, y - 9.dp.toPx()), Offset(xm, y + 9.dp.toPx()), 2.dp.toPx(), StrokeCap.Round)
+        for (k in 0..2) {
+            val tx = w * k / 2f
+            drawLine(Hair2, Offset(tx, y + 12.dp.toPx()), Offset(tx, y + 17.dp.toPx()), 1.dp.toPx())
+        }
+        if (now != null) {
+            val nx = w * ((now - lo) / (hi - lo)).coerceIn(0f, 1f)
+            drawCircle(Silver.copy(alpha = 0.25f), 9.dp.toPx(), Offset(nx, y))
+            drawCircle(Silver, 4.5.dp.toPx(), Offset(nx, y))
+        }
     }
 }
 
@@ -289,18 +486,23 @@ private fun AngleRow(
     fun set(v: Int) { onChange(v.coerceIn(lo, hi)) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
-            TextButton(onClick = onTest) { Text(S.sTest, color = accent, fontSize = 12.sp) }
+            Text(label, color = Silver, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            TestChip(S.sTest, accent) { onTest() }
         }
-        Row(
-            Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            StepBtn("−5", accent) { set(value - 5) }
-            StepBtn("−1", accent) { set(value - 1) }
-            Text("$value°", color = accent, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            StepBtn("+1", accent) { set(value + 1) }
-            StepBtn("+5", accent) { set(value + 5) }
+        // ردیف عددی فیزیکی است: منفی چپ ، مثبت راست
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Row(
+                Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                StepKey("−5", accent) { set(value - 5) }
+                StepKey("−1", accent) { set(value - 1) }
+                Box(Modifier.width(84.dp), contentAlignment = Alignment.Center) {
+                    Text("$value°", color = accent, fontSize = 30.sp, fontWeight = FontWeight.Light, maxLines = 1)
+                }
+                StepKey("+1", accent) { set(value + 1) }
+                StepKey("+5", accent) { set(value + 5) }
+            }
         }
         Slider(
             value = value.coerceIn(lo, hi).toFloat(),
@@ -320,16 +522,24 @@ private fun AxleEditor(
     onRest: (Int) -> Unit, onMid: (Int) -> Unit, onMax: (Int) -> Unit, vm: MainViewModel
 ) {
     val S = LocalStrings.current
-    CardBox(accent) {
+    Section(accent) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { CardTitle(title, if (front) "FRONT" else "REAR", accent) }
-            Text(
-                S.sNow + ": " + (nowAngle?.let { "$it°" } ?: "—"),
-                color = Steel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
-            )
+            Column(Modifier.weight(1f)) {
+                Eyebrow(if (front) "FRONT AXLE" else "REAR AXLE", accent.copy(alpha = 0.85f))
+                Text(title, color = Silver, fontWeight = FontWeight.SemiBold, fontSize = 19.sp)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(S.sNow, color = Steel, fontSize = 10.5.sp)
+                Text(nowAngle?.let { "$it°" } ?: "—", color = Silver, fontSize = 22.sp, fontWeight = FontWeight.Light)
+            }
+        }
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            RangeStrip(rest, mid, max, nowAngle, accent)
         }
         AngleRow(S.sRest, rest, 50, 110, accent, { onRest(it); vm.testServo(front, it) }, { vm.testServo(front, rest) })
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Hair))
         AngleRow(S.sMid, mid, rest, max, accent, { onMid(it); vm.testServo(front, it) }, { vm.testServo(front, mid) })
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Hair))
         AngleRow(S.sMax, max, rest + 5, 150, accent, { onMax(it); vm.testServo(front, it) }, { vm.testServo(front, max) })
     }
 }
@@ -361,7 +571,7 @@ private fun SuspensionPage(vm: MainViewModel, onBack: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        PageHeader(S.mSuspension, Cyan, onBack)
+        PageHeader(S.mSuspension, Cyan, onBack, "SUSPENSION")
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -400,43 +610,70 @@ private fun SuspensionPage(vm: MainViewModel, onBack: () -> Unit) {
         }
     }
     if (confirmReset) {
-        AlertDialog(
-            onDismissRequest = { confirmReset = false },
-            title = { Text(S.sDefaults) },
-            text = { Text(S.sysReset) },
-            confirmButton = { TextButton(onClick = { vm.resetCarDefaults(); confirmReset = false }) { Text(S.save) } },
-            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(S.cancel) } }
+        LuxDialog(S.sDefaults, S.sysReset, { vm.resetCarDefaults(); confirmReset = false }, { confirmReset = false })
+    }
+}
+
+// ======================================================================
+//  چشم‌ها و افکت‌ها
+// ======================================================================
+
+@Composable
+private fun UnderTab(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
+    val a by animateFloatAsState(if (selected) 1f else 0f, tween(260), label = "uTab")
+    Column(
+        Modifier.clip(RoundedCornerShape(12.dp)).clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            label, color = lerp(Steel, accent, a), fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1
+        )
+        Spacer(Modifier.height(6.dp))
+        Box(
+            Modifier.width((28f * a).dp).height(2.dp).clip(RoundedCornerShape(1.dp))
+                .background(accent.copy(alpha = a))
         )
     }
 }
 
-// ---------------- چشم‌ها و افکت‌ها ----------------
+@Composable
+private fun GridCell(item: Named, selected: Boolean, accent: Color, modifier: Modifier, onClick: () -> Unit) {
+    val S = LocalStrings.current
+    val a by animateFloatAsState(if (selected) 1f else 0f, tween(260), label = "cell")
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        modifier.height(92.dp).clip(shape)
+            .background(Brush.verticalGradient(listOf(lerp(Surface2, accent, 0.18f * a), Panel)))
+            .border(1.dp, lerp(Hair, accent, a), shape)
+            .clickable { onClick() }.padding(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            Modifier.size(40.dp).clip(CircleShape).background(accent.copy(alpha = 0.08f + 0.16f * a)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(item.icon, fontSize = 20.sp)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            item.name(S), color = lerp(Silver, accent, a), fontSize = 10.5.sp,
+            maxLines = 1, fontWeight = FontWeight.Medium
+        )
+    }
+}
 
 @Composable
 private fun ItemGrid(
     items: List<Named>, columns: Int, selected: Int, accent: Color, onPick: (Int) -> Unit
 ) {
-    val S = LocalStrings.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (row in items.chunked(columns)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (item in row) {
-                    val sel = item.id == selected
-                    val shape = RoundedCornerShape(16.dp)
-                    Column(
-                        Modifier.weight(1f).height(78.dp).clip(shape)
-                            .background(if (sel) accent.copy(alpha = 0.22f) else Surface2)
-                            .border(if (sel) 2.dp else 1.dp, if (sel) accent else Hair2, shape)
-                            .clickable { onPick(item.id) }.padding(6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(item.icon, fontSize = 24.sp)
-                        Text(
-                            item.name(S), color = if (sel) accent else Color.White, fontSize = 11.sp,
-                            maxLines = 1, fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                    GridCell(item, item.id == selected, accent, Modifier.weight(1f)) { onPick(item.id) }
                 }
                 for (k in 0 until (columns - row.size)) Spacer(Modifier.weight(1f))
             }
@@ -445,26 +682,34 @@ private fun ItemGrid(
 }
 
 @Composable
-private fun TextList(items: List<Named>, selected: Int, accent: Color, onPick: (Int) -> Unit) {
+private fun TextRow(item: Named, selected: Boolean, accent: Color, onClick: () -> Unit) {
     val S = LocalStrings.current
+    val en = S.lang == "en"
+    val a by animateFloatAsState(if (selected) 1f else 0f, tween(260), label = "txtRow")
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        Modifier.fillMaxWidth().clip(shape)
+            .background(Brush.horizontalGradient(listOf(lerp(Surface2, accent, 0.16f * a), Surface2)))
+            .border(1.dp, lerp(Hair, accent, a), shape)
+            .clickable { onClick() }.padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            (item.id + 1).toString().padStart(2, '0'), color = accent.copy(alpha = 0.8f),
+            fontSize = 12.sp, fontWeight = FontWeight.Light, modifier = Modifier.width(32.dp)
+        )
+        Column(Modifier.weight(1f)) {
+            Text(if (en) item.en else item.fa, color = Silver, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(if (en) item.fa else item.en, color = Steel, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun TextList(items: List<Named>, selected: Int, accent: Color, onPick: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         for (item in items) {
-            val sel = item.id == selected
-            val shape = RoundedCornerShape(14.dp)
-            val en = S.lang == "en"
-            Row(
-                Modifier.fillMaxWidth().clip(shape)
-                    .background(if (sel) accent.copy(alpha = 0.20f) else Surface2)
-                    .border(if (sel) 2.dp else 1.dp, if (sel) accent else Hair, shape)
-                    .clickable { onPick(item.id) }.padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("${item.id + 1}", color = accent.copy(alpha = 0.8f), fontSize = 11.sp, modifier = Modifier.width(26.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(if (en) item.en else item.fa, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(if (en) item.fa else item.en, color = Steel, fontSize = 11.sp)
-                }
-            }
+            TextRow(item, item.id == selected, accent) { onPick(item.id) }
         }
     }
 }
@@ -482,28 +727,24 @@ private fun EffectsPage(vm: MainViewModel, onBack: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        PageHeader(S.mEffects, Violet, onBack)
+        PageHeader(S.mEffects, Violet, onBack, "EXPRESSION")
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("👁️  " + S.eLive, color = Steel, fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PulseDot(true, Violet, 14.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(S.eLive, color = Steel, fontSize = 12.sp)
+            }
             val names = listOf(S.eEyes, S.eReact, S.eScenes, S.eTexts)
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (k in names.indices) {
-                    val sel = tab == k
-                    val shape = RoundedCornerShape(50)
-                    Box(
-                        Modifier.clip(shape)
-                            .background(if (sel) Violet.copy(alpha = 0.25f) else Surface3)
-                            .border(1.dp, if (sel) Violet else Hair, shape)
-                            .clickable { tab = k; picked = -1 }
-                            .padding(horizontal = 16.dp, vertical = 9.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(names[k], color = if (sel) Violet else Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Column {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                    for (k in names.indices) {
+                        UnderTab(names[k], tab == k, Violet) { tab = k; picked = -1 }
                     }
                 }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Hair))
             }
             when (tab) {
                 0 -> ItemGrid(POSES, 3, picked, Violet) { picked = it; vm.preview("POSE", it) }
@@ -519,7 +760,9 @@ private fun EffectsPage(vm: MainViewModel, onBack: () -> Unit) {
     }
 }
 
-// ---------------- باتری ----------------
+// ======================================================================
+//  باتری
+// ======================================================================
 
 private fun levelText(S: Strings, bl: Int): String = when (bl) {
     4 -> S.lvFull
@@ -556,56 +799,81 @@ private fun BatteryPage(vm: MainViewModel, onBack: () -> Unit) {
             savedFlash = false
         }
     }
+    val sweep by animateFloatAsState(240f * pct / 100f, tween(300), label = "batSweep")
 
     Column(Modifier.fillMaxSize()) {
-        PageHeader(S.mBattery, Ok, onBack)
+        PageHeader(S.mBattery, Ok, onBack, "POWER")
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (!ready) WaitingCard(vm)
             if (ready && !supported) {
-                CardBox(Gold) { Text(S.bNoFw, color = Gold, fontSize = 13.sp) }
+                Section(Gold) { Text(S.bNoFw, color = Gold, fontSize = 13.sp) }
             } else {
-                // ---- درجه‌ی باتری ----
-                CardBox(col) {
-                    Box(Modifier.fillMaxWidth().height(190.dp), contentAlignment = Alignment.Center) {
-                        Canvas(Modifier.size(180.dp)) {
-                            val sw = 16.dp.toPx()
-                            val tl = Offset(sw / 2f, sw / 2f)
-                            val sz = Size(size.width - sw, size.height - sw)
-                            drawArc(Color(0xFF222936), 150f, 240f, false, tl, sz, style = Stroke(sw, cap = StrokeCap.Round))
-                            if (on) drawArc(col, 150f, 240f * pct / 100f, false, tl, sz, style = Stroke(sw, cap = StrokeCap.Round))
+                // ---- گیج باتری: کمان ۲۴۰ درجه با خط‌های مقیاس ----
+                Section(col, active = on) {
+                    Box(Modifier.fillMaxWidth().height(220.dp), contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.size(212.dp)) {
+                            val sw = 14.dp.toPx()
+                            val pad = 24.dp.toPx()
+                            val tl = Offset(pad, pad)
+                            val sz = Size(size.width - 2f * pad, size.height - 2f * pad)
+                            val c = Offset(size.width / 2f, size.height / 2f)
+                            drawArc(Hair2, 150f, 240f, false, tl, sz, style = Stroke(sw, cap = StrokeCap.Round))
+                            if (on && sweep > 0.5f) {
+                                drawArc(col.copy(alpha = 0.22f), 150f, sweep, false, tl, sz, style = Stroke(sw * 2f, cap = StrokeCap.Round))
+                                drawArc(col, 150f, sweep, false, tl, sz, style = Stroke(sw, cap = StrokeCap.Round))
+                            }
+                            val rOut = size.width / 2f - 3.dp.toPx()
+                            for (k in 0..24) {
+                                val a = Math.toRadians(150.0 + 240.0 * k / 24.0)
+                                val rIn = rOut - (if (k % 6 == 0) 8.dp.toPx() else 4.dp.toPx())
+                                val ca2 = Math.cos(a).toFloat()
+                                val sa2 = Math.sin(a).toFloat()
+                                drawLine(
+                                    if (k % 6 == 0) Steel else Hair2,
+                                    Offset(c.x + ca2 * rIn, c.y + sa2 * rIn),
+                                    Offset(c.x + ca2 * rOut, c.y + sa2 * rOut), 1.2.dp.toPx(), StrokeCap.Round
+                                )
+                            }
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(if (on) "$pct%" else "--", color = col, fontSize = 40.sp, fontWeight = FontWeight.Black)
+                            Text(if (on) "$pct%" else "--", color = col, fontSize = 46.sp, fontWeight = FontWeight.Light)
                             Text(
                                 if (on) levelText(S, bl) else S.bOffText, color = Steel, fontSize = 13.sp
                             )
-                            if (on) Text("${(i["bv"] ?: 0) / 10.0} V", color = Steel, fontSize = 12.sp)
+                            if (on) Text("${(i["bv"] ?: 0) / 10.0} V", color = Silver, fontSize = 13.sp, fontWeight = FontWeight.Light)
                         }
                     }
                 }
 
                 // ---- روشن / خاموش ----
-                CardBox(Ok) {
+                Section(Ok) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(S.bEnable, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(S.bEnable, color = Silver, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                             Text(S.bEnableHint, color = Steel, fontSize = 11.sp, lineHeight = 16.sp)
                         }
-                        Switch(checked = on, onCheckedChange = { vm.setBatteryEnabled(it) }, enabled = ready)
+                        Switch(
+                            checked = on, onCheckedChange = { vm.setBatteryEnabled(it) }, enabled = ready,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Bg, checkedTrackColor = Ok, checkedBorderColor = Ok,
+                                uncheckedThumbColor = Steel, uncheckedTrackColor = Surface3, uncheckedBorderColor = Hair2
+                            )
+                        )
                     }
                 }
 
-                // ---- تنظیمات ----
-                CardBox(Cyan) {
+                // ---- آستانه‌ها ----
+                Section(Cyan) {
+                    Eyebrow("THRESHOLDS", Cyan.copy(alpha = 0.85f))
                     ValueSlider(S.bLow, lo, 8, 60, Gold, "%", { lo = it; if (cr > it - 3) cr = it - 3 }, {})
                     ValueSlider(S.bCrit, cr, 2, 30, Danger, "%", { cr = it; if (lo < it + 3) lo = it + 3 }, {})
                     ValueSlider(S.bCal + "  (×0.01)", ca, 50, 200, Cyan, "", { ca = it }, {})
                     PillButton(
                         label = if (savedFlash) S.saved else S.sSave, accent = Ok, filled = true, enabled = ready,
-                        modifier = Modifier.fillMaxWidth(), height = 50.dp,
+                        modifier = Modifier.fillMaxWidth(), height = 52.dp,
                         onClick = { vm.applyBattery(lo, cr, ca); savedFlash = true }
                     )
                     CopyCodeButton { batteryCode(on, lo, cr, ca) }
@@ -613,8 +881,11 @@ private fun BatteryPage(vm: MainViewModel, onBack: () -> Unit) {
                 }
 
                 // ---- شبیه‌سازی (برای دیدن افکت‌ها و الارم بدون باتری واقعی) ----
-                CardBox(Violet) {
-                    CardTitle(S.bSim, "TEST", Violet)
+                Section(Violet) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(S.bSim, color = Silver, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        Eyebrow("TEST", Violet.copy(alpha = 0.85f))
+                    }
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         for (p in listOf(100, 60, 35, 15, 5)) {
                             SimChip("$p%") { vm.simBattery(p) }
@@ -632,15 +903,17 @@ private fun BatteryPage(vm: MainViewModel, onBack: () -> Unit) {
 private fun SimChip(label: String, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
     Box(
-        Modifier.clip(shape).background(Surface3).border(1.dp, Violet.copy(alpha = 0.6f), shape)
+        Modifier.clip(shape).background(Violet.copy(alpha = 0.08f)).border(1.dp, Violet.copy(alpha = 0.55f), shape)
             .clickable { onClick() }.padding(horizontal = 18.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = Violet, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = Violet, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }
 
-// ---------------- سیستم ----------------
+// ======================================================================
+//  سیستم
+// ======================================================================
 
 @Composable
 private fun SystemPage(vm: MainViewModel, onBack: () -> Unit) {
@@ -661,22 +934,36 @@ private fun SystemPage(vm: MainViewModel, onBack: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        PageHeader(S.mSystem, Gold, onBack)
+        PageHeader(S.mSystem, Gold, onBack, "SYSTEM")
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (!ready) WaitingCard(vm)
-            CardBox(Gold) {
-                InfoRow(S.sysFirmware, if (ready) "v${i["v"]}" else "—")
-                InfoRow(S.sysMode, if (ready) modeText else "—")
-                InfoRow(S.sysMood, if (ready) moodText else "—")
-                InfoRow(S.sysLocked, if (ready) (if ((i["lk"] ?: 0) == 1) S.yes else S.no) else "—")
-                InfoRow(
-                    S.sysDisplay, if (ready) (if ((i["od"] ?: 0) == 1) S.okText else S.problem) else "—",
-                    if (ready && (i["od"] ?: 0) != 1) Danger else Color.White
-                )
-                InfoRow("F / R", if (ready) "${i["pf"]}° / ${i["pb"]}°" else "—")
+
+            // نمای کلی: شماره‌ی نسخه‌ی بزرگ + حالت
+            Section(Gold) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Eyebrow("FIRMWARE", Gold.copy(alpha = 0.85f))
+                        Text(if (ready) "v${i["v"]}" else "—", color = Silver, fontSize = 40.sp, fontWeight = FontWeight.Light)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Eyebrow("MODE", Steel)
+                        Text(if (ready) modeText else "—", color = Gold, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+                Column {
+                    InfoRow(S.sysFirmware, if (ready) "v${i["v"]}" else "—")
+                    InfoRow(S.sysMode, if (ready) modeText else "—")
+                    InfoRow(S.sysMood, if (ready) moodText else "—")
+                    InfoRow(S.sysLocked, if (ready) (if ((i["lk"] ?: 0) == 1) S.yes else S.no) else "—")
+                    InfoRow(
+                        S.sysDisplay, if (ready) (if ((i["od"] ?: 0) == 1) S.okText else S.problem) else "—",
+                        if (ready && (i["od"] ?: 0) != 1) Danger else Silver
+                    )
+                    InfoRow("F / R", if (ready) "${i["pf"]}° / ${i["pb"]}°" else "—")
+                }
             }
             PillButton(
                 label = S.refresh, accent = Cyan, filled = false, enabled = true,
@@ -694,16 +981,13 @@ private fun SystemPage(vm: MainViewModel, onBack: () -> Unit) {
         }
     }
     if (confirm != 0) {
-        AlertDialog(
-            onDismissRequest = { confirm = 0 },
-            title = { Text(if (confirm == 1) S.sysReset else S.sysRestart) },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (confirm == 1) vm.resetCarDefaults() else vm.restartCar()
-                    confirm = 0
-                }) { Text(S.save) }
+        LuxDialog(
+            if (confirm == 1) S.sysReset else S.sysRestart, null,
+            {
+                if (confirm == 1) vm.resetCarDefaults() else vm.restartCar()
+                confirm = 0
             },
-            dismissButton = { TextButton(onClick = { confirm = 0 }) { Text(S.cancel) } }
+            { confirm = 0 }
         )
     }
 }

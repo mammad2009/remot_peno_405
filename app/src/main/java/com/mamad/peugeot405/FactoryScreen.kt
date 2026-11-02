@@ -14,10 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,11 +31,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,10 +42,12 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.cos
 import kotlin.math.sin
 
-private val Ink = Color(0xFFE6F3FF)
+// رنگ پیکسل‌های OLED: سفید یخی
+private val Ink = Color(0xFFDDEEFF)
 
 /**
  * پیش‌نمایش نمایشگر OLED ماکت در حالت کارخانه (همان صحنه‌ای که روی ماکت پخش می‌شود).
+ * قاب: مثل نمایشگر داشبورد ، با بزل گرافیتی ، خط‌های اسکن ظریف و بازتاب شیشه.
  */
 @Composable
 fun FactoryPreview(modifier: Modifier = Modifier) {
@@ -60,17 +59,53 @@ fun FactoryPreview(modifier: Modifier = Modifier) {
         }
     }
     val typed by remember { derivedStateOf { (((now - 1700L) / 70L).toInt()).coerceIn(0, 12) } }
-    val shape = RoundedCornerShape(24.dp)
-    Box(
-        modifier.fillMaxWidth().aspectRatio(2f).clip(shape).background(Color.Black)
-            .border(1.dp, Cyan.copy(alpha = 0.45f), shape)
+    val ledOn by remember { derivedStateOf { (now / 700L) % 2L == 0L } }
+    val frame = RoundedCornerShape(26.dp)
+    val glass = RoundedCornerShape(16.dp)
+
+    Column(
+        modifier.fillMaxWidth().luxPanel(frame, Cyan).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Canvas(Modifier.fillMaxSize()) { drawFactoryScene(now) }
-        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp)) {
-            Text(
-                "FACTORY MODE".take(typed), color = Ink, fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
+        // نوار بالای قاب: برچسب + چراغ زنده
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(6.dp).clip(CircleShape)
+                    .background(if (ledOn) Gold else Gold.copy(alpha = 0.25f))
             )
+            Spacer(Modifier.width(8.dp))
+            Text("FACTORY DISPLAY", color = Gold, fontSize = 9.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.weight(1f))
+            Text("OLED 128×64", color = Steel, fontSize = 9.sp, letterSpacing = 2.sp)
+        }
+        // خود صفحه
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(2f).clip(glass).background(Color.Black)
+                .border(1.dp, Hair2, glass)
+        ) {
+            Canvas(Modifier.fillMaxSize()) { drawFactoryScene(now) }
+            // خط‌های اسکن
+            Canvas(Modifier.fillMaxSize()) {
+                var y = 0f
+                val step = 3.dp.toPx()
+                while (y < size.height) {
+                    drawRect(Color(0x14000000), Offset(0f, y), Size(size.width, 1.dp.toPx()))
+                    y += step
+                }
+                // بازتاب شیشه
+                drawRect(
+                    Brush.linearGradient(
+                        listOf(Color(0x14FFFFFF), Color.Transparent),
+                        start = Offset(0f, 0f), end = Offset(size.width * 0.6f, size.height * 0.9f)
+                    )
+                )
+            }
+            Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp)) {
+                Text(
+                    "FACTORY MODE".take(typed), color = Ink, fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
+                )
+            }
         }
     }
 }

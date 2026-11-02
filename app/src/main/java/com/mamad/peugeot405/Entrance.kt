@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -13,6 +14,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +29,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
@@ -68,6 +71,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.sin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -112,6 +116,8 @@ fun DrawScope.drawPadlock(c: Offset, s: Float, color: Color, open: Boolean, stro
 }
 
 // ======================= صفحه‌ی اتصال =======================
+//  «Ignition»: حلقه‌ی استارت وسط صفحه ، نشانگرهای دور حلقه موقع اتصال یکی‌یکی روشن می‌شن
+//  و یک چراغ وضعیت زنده زیر حلقه (قرمز = آماده ، شامپاینی = در حال اتصال ، سبز = وصل)
 
 @Composable
 fun ConnectScreen(vm: MainViewModel, onPick: () -> Unit, onSkip: () -> Unit) {
@@ -129,42 +135,49 @@ fun ConnectScreen(vm: MainViewModel, onPick: () -> Unit, onSkip: () -> Unit) {
     var pressed by remember { mutableStateOf(false) }
     val press by animateFloatAsState(if (pressed) 0.94f else 1f, tween(100), label = "cPress")
     val inf = rememberInfiniteTransition(label = "cInf")
-    val t by inf.animateFloat(0f, 1f, infiniteRepeatable(tween(3800, easing = LinearEasing)), label = "cT")
-    val sweep by inf.animateFloat(0f, 360f, infiniteRepeatable(tween(1300, easing = LinearEasing)), label = "cSweep")
+    val t by inf.animateFloat(0f, 1f, infiniteRepeatable(tween(4200, easing = LinearEasing)), label = "cT")
+    val sweep by inf.animateFloat(0f, 360f, infiniteRepeatable(tween(1500, easing = LinearEasing)), label = "cSweep")
+    val pulse by inf.animateFloat(
+        0f, 1f, infiniteRepeatable(tween(1700, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "cPulse"
+    )
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val centerShift = maxHeight * 0.05f
 
-        // حلقه‌های هم‌مرکز و موج‌های رادار
+        // حلقه‌های راهنما ، موج‌های نرم و نشانگرهای دور حلقه
         Canvas(Modifier.fillMaxSize()) {
             val vis = appear.coerceIn(0f, 1f) * (1f - hide)
             if (vis > 0.001f) {
                 val c = Offset(size.width / 2f, size.height / 2f - centerShift.toPx())
-                val base = 82.dp.toPx()
-                val ph = t * 2f * PI.toFloat()
-                val n = 26
-                for (i in 0 until n) {
-                    val f = i / (n - 1f)
-                    val rad = base * 1.2f + f * size.width * 0.62f
-                    val off = sin(ph + f * 6f) * f * 16.dp.toPx()
-                    val a = (0.62f * (1f - f) + 0.07f) * vis * (0.55f + 0.45f * busy)
+                val base = 98.dp.toPx()
+                for (i in 1..4) {
                     drawCircle(
-                        lerp(Cyan, Color(0xFF0B3A66), f).copy(alpha = a), rad,
-                        c + Offset(off, off * 0.45f), style = Stroke(0.8.dp.toPx())
+                        Color.White.copy(alpha = 0.05f * vis * (1f - 0.2f * i)),
+                        base + i * 46.dp.toPx(), c, style = Stroke(1.dp.toPx())
                     )
                 }
                 for (k in 0..2) {
                     val p = (t + k / 3f) % 1f
                     drawCircle(
-                        Cyan.copy(alpha = (1f - p) * 0.45f * vis * (0.35f + 0.65f * busy)),
-                        base + p * size.width * 0.55f, c, style = Stroke(1.6.dp.toPx())
+                        Cyan.copy(alpha = (1f - p) * 0.30f * vis * (0.30f + 0.70f * busy)),
+                        base + p * size.width * 0.50f, c, style = Stroke(1.2.dp.toPx())
                     )
                 }
-                if (busy > 0.01f) {
-                    drawArc(
-                        Cyan.copy(alpha = busy * vis), sweep, 100f, false,
-                        Offset(c.x - base, c.y - base), Size(base * 2f, base * 2f),
-                        style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
+                // ۷۲ نشانگر دور حلقه ؛ موقع اتصال یک موج شامپاینی دورشون می‌چرخه
+                for (i in 0 until 72) {
+                    val ang = i * 5f
+                    val rad = Math.toRadians(ang.toDouble())
+                    val ca = cos(rad).toFloat()
+                    val sa = kotlin.math.sin(rad).toFloat()
+                    val major = i % 6 == 0
+                    val r0 = base + 4.dp.toPx()
+                    val r1 = r0 + (if (major) 10.dp.toPx() else 5.dp.toPx())
+                    val d = (((ang - sweep) % 360f) + 360f) % 360f
+                    val lit = if (d < 100f) (1f - d / 100f) * busy else 0f
+                    drawLine(
+                        lerp(Color.White.copy(alpha = if (major) 0.28f else 0.14f), Gold, lit).copy(alpha = vis),
+                        Offset(c.x + ca * r0, c.y + sa * r0), Offset(c.x + ca * r1, c.y + sa * r1),
+                        1.2.dp.toPx(), StrokeCap.Round
                     )
                 }
             }
@@ -172,21 +185,21 @@ fun ConnectScreen(vm: MainViewModel, onPick: () -> Unit, onSkip: () -> Unit) {
 
         // نام برنامه بالای صفحه
         Column(
-            Modifier.align(Alignment.TopCenter).padding(top = 48.dp)
+            Modifier.align(Alignment.TopCenter).padding(top = 52.dp)
                 .graphicsLayer { alpha = appear.coerceIn(0f, 1f) * (1f - hide) },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("PEUGEOT", color = Silver, fontSize = 12.sp, letterSpacing = 8.sp, fontWeight = FontWeight.Medium)
-            Text("405", color = Color.White, fontSize = 44.sp, letterSpacing = 6.sp, fontWeight = FontWeight.Black)
-            Text("PNEUMATIC CONTROL", color = Steel, fontSize = 10.sp, letterSpacing = 4.sp)
+            Text("PEUGEOT  \u00B7  GLX", color = Gold, fontSize = 11.sp, letterSpacing = 6.sp, fontWeight = FontWeight.Medium)
+            Text("405", color = Silver, fontSize = 56.sp, letterSpacing = 10.sp, fontWeight = FontWeight.Light)
+            Text("PNEUMATIC CONTROL", color = Steel, fontSize = 9.5.sp, letterSpacing = 4.sp)
         }
 
-        // دکمه‌ی اتصال
+        // دکمه‌ی استارت (اتصال)
         Box(
-            Modifier.align(Alignment.Center).offset(y = -centerShift).size(150.dp)
+            Modifier.align(Alignment.Center).offset(y = -centerShift).size(168.dp)
                 .graphicsLayer {
                     val sc = (0.55f + 0.45f * appear) * (1f + 0.5f * hide) * press *
-                        (1f + 0.025f * sin(t * 2f * PI.toFloat()))
+                        (1f + 0.02f * sin(t * 2f * PI.toFloat()))
                     scaleX = sc
                     scaleY = sc
                     alpha = appear.coerceIn(0f, 1f) * (1f - hide)
@@ -211,27 +224,53 @@ fun ConnectScreen(vm: MainViewModel, onPick: () -> Unit, onSkip: () -> Unit) {
             Canvas(Modifier.fillMaxSize()) {
                 val r = size.minDimension / 2f
                 drawCircle(
-                    brush = Brush.radialGradient(listOf(Color(0xFF0E202E), Color(0xFF04070A)), center = center, radius = r),
+                    brush = Brush.radialGradient(
+                        listOf(Surface3, Panel, Bg),
+                        center = Offset(center.x, center.y - r * 0.25f), radius = r * 1.3f
+                    ),
                     radius = r, center = center
                 )
                 drawCircle(
-                    brush = Brush.sweepGradient(listOf(Cyan, Color(0xFF0B3A66), Cyan.copy(alpha = 0.2f), Cyan), center),
-                    radius = r - 1.dp.toPx(), center = center, style = Stroke(2.dp.toPx())
+                    brush = Brush.sweepGradient(
+                        listOf(Cyan.copy(alpha = 0.95f), Hair, Gold.copy(alpha = 0.8f), Hair, Cyan.copy(alpha = 0.95f)),
+                        center
+                    ),
+                    radius = r - 1.dp.toPx(), center = center, style = Stroke(1.5.dp.toPx())
                 )
-                drawCircle(Cyan.copy(alpha = 0.18f), r - 11.dp.toPx(), center, style = Stroke(1.dp.toPx()))
-                drawWifi(center, 24.dp.toPx(), Cyan, 3.dp.toPx())
+                drawCircle(Hair, r - 13.dp.toPx(), center, style = Stroke(1.dp.toPx()))
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Cyan.copy(alpha = 0.10f + 0.10f * pulse + 0.10f * busy), Color.Transparent),
+                        center = center, radius = r * 0.75f
+                    ),
+                    radius = r * 0.75f, center = center
+                )
+                if (busy > 0.01f) {
+                    drawArc(
+                        Gold.copy(alpha = busy), sweep, 70f, false,
+                        Offset(center.x - r + 6.dp.toPx(), center.y - r + 6.dp.toPx()),
+                        Size((r - 6.dp.toPx()) * 2f, (r - 6.dp.toPx()) * 2f),
+                        style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+                drawWifi(center, 26.dp.toPx(), lerp(Silver, Gold, busy), 3.dp.toPx())
             }
         }
 
-        // متن زیر دکمه
+        // چراغ وضعیت و متن زیر دکمه
         val title = when {
             vm.connected -> S.cConnected
             vm.connecting -> S.cConnecting
             else -> S.cIdle
         }
         val sub = if (vm.statusType == St.IDLE) S.cSubIdle else S.status(vm.statusType, vm.statusArg)
+        val led = when {
+            vm.connected -> Ok
+            vm.connecting -> Gold
+            else -> Danger
+        }
         Column(
-            Modifier.align(Alignment.Center).offset(y = -centerShift + 125.dp)
+            Modifier.align(Alignment.Center).offset(y = -centerShift + 148.dp)
                 .padding(horizontal = 32.dp)
                 .graphicsLayer {
                     alpha = appear.coerceIn(0f, 1f) * (1f - hide)
@@ -239,8 +278,18 @@ fun ConnectScreen(vm: MainViewModel, onPick: () -> Unit, onSkip: () -> Unit) {
                 },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(title, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
+            Row(
+                Modifier.luxPanel(RoundedCornerShape(50)).padding(horizontal = 18.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier.size(8.dp).clip(CircleShape)
+                        .background(led.copy(alpha = if (vm.connecting) 0.45f + 0.55f * pulse else 1f))
+                )
+                Spacer(Modifier.size(10.dp))
+                Text(title, color = Silver, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(10.dp))
             Text(sub, color = Steel, fontSize = 12.sp)
         }
 
@@ -248,15 +297,17 @@ fun ConnectScreen(vm: MainViewModel, onPick: () -> Unit, onSkip: () -> Unit) {
         Row(
             Modifier.align(Alignment.BottomCenter).padding(bottom = 36.dp)
                 .graphicsLayer { alpha = appear.coerceIn(0f, 1f) * (1f - hide) },
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                S.pickDevice, color = Steel, fontSize = 12.sp,
-                modifier = Modifier.clickable { vm.refreshNetwork(); onPick() }.padding(12.dp)
+                S.pickDevice, color = Silver, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                modifier = Modifier.clip(RoundedCornerShape(50)).border(1.dp, Hair2, RoundedCornerShape(50))
+                    .clickable { vm.refreshNetwork(); onPick() }.padding(horizontal = 18.dp, vertical = 11.dp)
             )
             Text(
                 S.demoMode, color = Steel, fontSize = 12.sp,
-                modifier = Modifier.clickable { onSkip() }.padding(12.dp)
+                modifier = Modifier.clip(RoundedCornerShape(50)).border(1.dp, Hair, RoundedCornerShape(50))
+                    .clickable { onSkip() }.padding(horizontal = 18.dp, vertical = 11.dp)
             )
         }
     }
@@ -282,7 +333,7 @@ private fun DrawScope.drawRemoteBody(locked: Boolean?, connected: Boolean) {
     for (i in 1..8) {
         val d = w * 0.007f * i
         drawRoundRect(
-            glowCol.copy(alpha = 0.055f * (9 - i) / 8f),
+            glowCol.copy(alpha = 0.05f * (9 - i) / 8f),
             topLeft = Offset(left - d, top - d),
             size = Size(right - left + 2f * d, bottom - top + 2f * d),
             cornerRadius = CornerRadius(w * 0.20f + d),
@@ -290,70 +341,79 @@ private fun DrawScope.drawRemoteBody(locked: Boolean?, connected: Boolean) {
         )
     }
 
-    // تیغه‌ی کروم پایین
+    // تیغه‌ی پلاتینی پایین (محل حلقه‌ی کلید)
     val chrome = Brush.horizontalGradient(
-        listOf(Color(0xFF5A606C), Color(0xFFF1F4F9), Color(0xFF8A92A1), Color(0xFFE5E9F0), Color(0xFF4B515C)),
+        listOf(Color(0xFF4B515C), Color(0xFFE9EAEC), Color(0xFF8D929C), Color(0xFFDADCE0), Color(0xFF3C414B)),
         startX = w * 0.30f, endX = w * 0.70f
     )
     drawRoundRect(chrome, Offset(w * 0.30f, h * 0.775f), Size(w * 0.40f, h * 0.21f), CornerRadius(w * 0.10f))
-    drawRoundRect(Color(0xFF050608), Offset(w * 0.375f, h * 0.865f), Size(w * 0.25f, h * 0.095f), CornerRadius(w * 0.06f))
+    drawRoundRect(Bg, Offset(w * 0.375f, h * 0.865f), Size(w * 0.25f, h * 0.095f), CornerRadius(w * 0.06f))
 
-    // بدنه
+    // بدنه‌ی گرافیتی
     drawRoundRect(
-        Brush.verticalGradient(
-            listOf(Color(0xFF2B303A), Color(0xFF171A20), Color(0xFF0B0D11)),
-            startY = top, endY = bottom
-        ),
+        Brush.verticalGradient(listOf(Surface4, Surface2, Panel, Bg), startY = top, endY = bottom),
         Offset(left, top), Size(right - left, bottom - top), cr
     )
-    // برق مورب روی بدنه
+    // نور نرم مورب
     drawRoundRect(
         Brush.linearGradient(
-            listOf(Color.White.copy(alpha = 0.11f), Color.Transparent),
+            listOf(Color.White.copy(alpha = 0.08f), Color.Transparent),
             start = Offset(left, top), end = Offset(w * 0.65f, h * 0.38f)
         ),
         Offset(left, top), Size(right - left, bottom - top), cr
     )
-    // لبه‌ی فلزی
+    // لبه‌ی فلزی موئی
     drawRoundRect(
         Brush.linearGradient(
-            listOf(Color(0xFFEFF2F8), Color(0xFF4A5160), Color(0xFF14171C), Color(0xFF9AA3B5)),
+            listOf(Silver.copy(alpha = 0.95f), Steel.copy(alpha = 0.35f), Hair, Silver.copy(alpha = 0.6f)),
             start = Offset(0f, 0f), end = Offset(w, h)
         ),
         Offset(left, top), Size(right - left, bottom - top), cr,
-        style = Stroke(w * 0.012f)
+        style = Stroke(w * 0.008f)
     )
     drawRoundRect(
         Color.Black.copy(alpha = 0.55f),
         Offset(left + w * 0.018f, top + w * 0.018f),
         Size(right - left - w * 0.036f, bottom - top - w * 0.036f),
-        CornerRadius(w * 0.18f), style = Stroke(w * 0.006f)
+        CornerRadius(w * 0.18f), style = Stroke(w * 0.005f)
+    )
+
+    // خط شامپاینی کنار شیر
+    val gy = h * 0.19f
+    drawLine(
+        Brush.horizontalGradient(listOf(Color.Transparent, Gold.copy(alpha = 0.7f)), startX = w * 0.12f, endX = w * 0.34f),
+        Offset(w * 0.12f, gy), Offset(w * 0.34f, gy), w * 0.004f
+    )
+    drawLine(
+        Brush.horizontalGradient(listOf(Gold.copy(alpha = 0.7f), Color.Transparent), startX = w * 0.66f, endX = w * 0.88f),
+        Offset(w * 0.66f, gy), Offset(w * 0.88f, gy), w * 0.004f
     )
 
     // درز وسط (جایی که ریموت تا می‌شود)
     val seamY = h * 0.527f
-    drawLine(Color.Black.copy(alpha = 0.85f), Offset(left + w * 0.03f, seamY), Offset(right - w * 0.03f, seamY), w * 0.012f)
-    drawLine(Color.White.copy(alpha = 0.13f), Offset(left + w * 0.03f, seamY + w * 0.012f), Offset(right - w * 0.03f, seamY + w * 0.012f), w * 0.006f)
+    drawLine(Color.Black.copy(alpha = 0.85f), Offset(left + w * 0.03f, seamY), Offset(right - w * 0.03f, seamY), w * 0.010f)
+    drawLine(Color.White.copy(alpha = 0.10f), Offset(left + w * 0.03f, seamY + w * 0.010f), Offset(right - w * 0.03f, seamY + w * 0.010f), w * 0.005f)
 
-    // کلاهک کروم بالا (محل حلقه‌ی کلید)
+    // کلاهک پلاتینی بالا (محل حلقه‌ی کلید)
     val cx = w * 0.285f
     val cy = h * 0.078f
     val cr2 = w * 0.105f
     drawCircle(
         brush = Brush.radialGradient(
-            listOf(Color.White, Color(0xFFC3C9D4), Color(0xFF5E6573), Color(0xFF20242B)),
+            listOf(Color.White, Color(0xFFC9CCD2), Color(0xFF666C78), Color(0xFF22262D)),
             center = Offset(cx - cr2 * 0.3f, cy - cr2 * 0.3f), radius = cr2 * 1.5f
         ),
         radius = cr2, center = Offset(cx, cy)
     )
-    drawCircle(Color.Black.copy(alpha = 0.6f), cr2, Offset(cx, cy), style = Stroke(w * 0.010f))
-    drawCircle(Color(0xFF15171C), cr2 * 0.28f, Offset(cx + cr2 * 0.1f, cy + cr2 * 0.15f))
+    drawCircle(Color.Black.copy(alpha = 0.6f), cr2, Offset(cx, cy), style = Stroke(w * 0.008f))
+    drawCircle(Gold.copy(alpha = 0.55f), cr2 * 0.62f, Offset(cx, cy), style = Stroke(w * 0.004f))
+    drawCircle(Panel, cr2 * 0.28f, Offset(cx + cr2 * 0.1f, cy + cr2 * 0.15f))
 
     // چراغ وضعیت
-    val ledCol = if (!connected) Color(0xFF8A3B3B) else when (locked) {
+    val ledCol = if (!connected) Danger.copy(alpha = 0.75f) else when (locked) {
         true -> Cyan
         false -> Gold
-        null -> Color(0xFF3A404C)
+        null -> Surface4
     }
     val lx = w * 0.78f
     val ly = h * 0.078f
@@ -361,7 +421,8 @@ private fun DrawScope.drawRemoteBody(locked: Boolean?, connected: Boolean) {
         brush = Brush.radialGradient(listOf(ledCol.copy(alpha = 0.55f), Color.Transparent), center = Offset(lx, ly), radius = w * 0.09f),
         radius = w * 0.09f, center = Offset(lx, ly)
     )
-    drawCircle(ledCol, w * 0.022f, Offset(lx, ly))
+    drawCircle(ledCol, w * 0.020f, Offset(lx, ly))
+    drawCircle(Color.White.copy(alpha = 0.35f), w * 0.007f, Offset(lx - w * 0.006f, ly - w * 0.006f))
 }
 
 @Composable
@@ -404,25 +465,23 @@ private fun RemoteKey(
             }
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            val r = CornerRadius(size.width * 0.20f)
-            drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF2A2F39), Color(0xFF12151A))), cornerRadius = r)
-            drawRoundRect(accent.copy(alpha = 0.10f * act + 0.30f * press), cornerRadius = r)
+            val rr = size.width * 0.16f
+            val r = CornerRadius(rr)
+            drawRoundRect(Brush.verticalGradient(listOf(Surface3, Panel)), cornerRadius = r)
+            drawRoundRect(accent.copy(alpha = 0.07f * act + 0.24f * press), cornerRadius = r)
+            val ea = (0.35f + 0.50f * act + 0.15f * press).coerceIn(0f, 1f)
             drawRoundRect(
-                Brush.linearGradient(
-                    listOf(Color.White.copy(alpha = 0.38f), Color.White.copy(alpha = 0.04f), Color.Black.copy(alpha = 0.7f)),
-                    start = Offset.Zero, end = Offset(size.width, size.height)
-                ),
-                cornerRadius = r, style = Stroke(1.6.dp.toPx())
+                Brush.verticalGradient(listOf(accent.copy(alpha = ea), Hair)),
+                cornerRadius = r, style = Stroke(1.2.dp.toPx())
             )
-            val glow = 0.55f * act + 0.45f * press
+            val glow = 0.50f * act + 0.40f * press
             if (glow > 0.01f) {
-                drawRoundRect(accent.copy(alpha = glow), cornerRadius = r, style = Stroke(1.5.dp.toPx()))
                 for (i in 1..4) {
                     val d = 2.5.dp.toPx() * i
                     drawRoundRect(
-                        accent.copy(alpha = glow * 0.22f * (5 - i) / 4f),
+                        accent.copy(alpha = glow * 0.20f * (5 - i) / 4f),
                         topLeft = Offset(-d, -d), size = Size(size.width + 2f * d, size.height + 2f * d),
-                        cornerRadius = CornerRadius(size.width * 0.20f + d), style = Stroke(2.5.dp.toPx())
+                        cornerRadius = CornerRadius(rr + d), style = Stroke(2.5.dp.toPx())
                     )
                 }
             }
@@ -430,16 +489,22 @@ private fun RemoteKey(
             if (wv < 1f) {
                 val d = wv * 26.dp.toPx()
                 drawRoundRect(
-                    accent.copy(alpha = (1f - wv) * 0.75f),
+                    accent.copy(alpha = (1f - wv) * 0.70f),
                     topLeft = Offset(-d, -d), size = Size(size.width + 2f * d, size.height + 2f * d),
-                    cornerRadius = CornerRadius(size.width * 0.20f + d), style = Stroke(2.dp.toPx())
+                    cornerRadius = CornerRadius(rr + d), style = Stroke(1.6.dp.toPx())
+                )
+            }
+            if (act > 0.01f) {
+                drawLine(
+                    accent.copy(alpha = act), Offset(size.width * 0.38f, 9.dp.toPx()),
+                    Offset(size.width * 0.62f, 9.dp.toPx()), 2.dp.toPx(), StrokeCap.Round
                 )
             }
             val ic = lerp(Silver.copy(alpha = 0.92f), accent, (act * 0.7f + press).coerceIn(0f, 1f))
-            drawPadlock(Offset(size.width / 2f, size.height * 0.45f), size.width * 0.34f, ic, open, 2.4.dp.toPx())
+            drawPadlock(Offset(size.width / 2f, size.height * 0.45f), size.width * 0.32f, ic, open, 2.2.dp.toPx())
         }
         Text(
-            label, color = Steel, fontSize = 11.sp,
+            label, color = Steel, fontSize = 10.5.sp, letterSpacing = 1.sp,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp)
         )
     }
@@ -513,8 +578,14 @@ fun RemoteIntro(vm: MainViewModel, onLeaving: () -> Unit, onDone: () -> Unit) {
             val a = ap.coerceIn(0f, 1f) * (1f - lp)
             drawRect(
                 Brush.radialGradient(
-                    listOf(Cyan.copy(alpha = 0.20f * a), Color.Transparent),
+                    listOf(Cyan.copy(alpha = 0.14f * a), Color.Transparent),
                     center = Offset(size.width / 2f, size.height * 0.46f), radius = size.width * 0.95f
+                )
+            )
+            drawRect(
+                Brush.radialGradient(
+                    listOf(Gold.copy(alpha = 0.07f * a), Color.Transparent),
+                    center = Offset(size.width / 2f, size.height * 0.92f), radius = size.width * 0.9f
                 )
             )
         }
@@ -546,10 +617,12 @@ fun RemoteIntro(vm: MainViewModel, onLeaving: () -> Unit, onDone: () -> Unit) {
                 Modifier.graphicsLayer { alpha = ap.coerceIn(0f, 1f) * (1f - lp) },
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(S.lockText(vm.locked), color = Silver, fontSize = 13.sp)
+                Text(S.lockText(vm.locked), color = Silver, fontSize = 13.sp, letterSpacing = 0.5.sp)
+                Spacer(Modifier.height(10.dp))
                 Text(
-                    S.enterMenu, color = Steel, fontSize = 12.sp,
-                    modifier = Modifier.clickable { startLeave() }.padding(12.dp)
+                    S.enterMenu, color = Silver, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).border(1.dp, Hair2, RoundedCornerShape(50))
+                        .clickable { startLeave() }.padding(horizontal = 20.dp, vertical = 11.dp)
                 )
             }
         }
@@ -569,7 +642,7 @@ fun RemoteOverlay(vm: MainViewModel, visible: Boolean, onClose: () -> Unit) {
     BoxWithConstraints(
         Modifier.fillMaxSize()
             .graphicsLayer { alpha = p.coerceIn(0f, 1f) }
-            .background(Color(0xEB000000))
+            .background(Bg.copy(alpha = 0.94f))
             .pointerInput(Unit) { detectTapGestures { onClose() } }
     ) {
         val density = LocalDensity.current
@@ -596,15 +669,15 @@ fun RemoteOverlay(vm: MainViewModel, visible: Boolean, onClose: () -> Unit) {
             Text(
                 if (vm.connected) (if (vm.locked == null) S.readyOverlay else S.lockText(vm.locked))
                 else S.noConnection,
-                color = if (vm.connected) Silver else Color(0xFFF87171), fontSize = 13.sp
+                color = if (vm.connected) Silver else Danger, fontSize = 13.sp, letterSpacing = 0.5.sp
             )
         }
         Box(
             Modifier.align(Alignment.TopStart).padding(16.dp).size(42.dp).clip(CircleShape)
-                .background(Panel).clickable { onClose() },
+                .background(Surface2).border(1.dp, Hair2, CircleShape).clickable { onClose() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Close, null, tint = Color.White)
+            Icon(Icons.Default.Close, null, tint = Silver)
         }
     }
 }

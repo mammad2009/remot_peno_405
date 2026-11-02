@@ -382,18 +382,46 @@ fun GroupCard(name: String, list: List<Cmd>, onPress: (Cmd) -> Unit) {
     }
 }
 
+// ---------- تنظیمات: زبان ، فرمان مستقیم ، فهرست فرمان‌ها ----------
+
 @Composable
-private fun LangChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(50)
+private fun LangChip(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
+    val a by animateFloatAsState(if (selected) 1f else 0f, tween(250), label = "lang")
     Box(
-        Modifier.clip(shape)
-            .background(if (selected) Cyan.copy(alpha = 0.18f) else Surface3)
-            .border(1.dp, if (selected) Cyan else Hair2, shape)
-            .clickable { onClick() }
-            .padding(horizontal = 18.dp, vertical = 9.dp),
+        modifier.clip(shape)
+            .background(Brush.verticalGradient(listOf(Cyan.copy(alpha = 0.22f * a), Color.Transparent)))
+            .border(1.dp, lerp(Hair2, Cyan, a), shape)
+            .clickable { onClick() }.padding(vertical = 14.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = if (selected) Cyan else Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = lerp(Steel, Cyan, a), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Silver, unfocusedTextColor = Silver, cursorColor = Cyan,
+    focusedBorderColor = Cyan, unfocusedBorderColor = Hair2,
+    focusedLabelColor = Cyan, unfocusedLabelColor = Steel
+)
+
+@Composable
+private fun CommandRow(c: Cmd, S: Strings, onEdit: () -> Unit, onDelete: (() -> Unit)?) {
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        Modifier.fillMaxWidth().clip(shape).background(Surface2).border(1.dp, Hair, shape)
+            .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(S.cmdLabel(c), color = Silver, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(S.sentCommand(c.command), color = Steel, fontSize = 11.sp)
+        }
+        IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, null, tint = Cyan) }
+        if (onDelete != null) {
+            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, null, tint = Danger) }
+        }
     }
 }
 
@@ -402,46 +430,56 @@ fun SettingsScreen(vm: MainViewModel) {
     val S = LocalStrings.current
     var editing by remember { mutableStateOf<Cmd?>(null) }
     var raw by remember { mutableStateOf("") }
-    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val grouped = vm.commands.groupBy { it.group }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         item {
             CardBox(Cyan) {
                 CardTitle(S.language, "LANGUAGE", Cyan)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    LangChip("فارسی", vm.lang == "fa") { vm.switchLang("fa") }
-                    LangChip("English", vm.lang == "en") { vm.switchLang("en") }
+                    LangChip("فارسی", vm.lang == "fa", Modifier.weight(1f)) { vm.switchLang("fa") }
+                    LangChip("English", vm.lang == "en", Modifier.weight(1f)) { vm.switchLang("en") }
                 }
             }
         }
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(raw, { raw = it }, label = { Text(S.sendCustom) },
-                    modifier = Modifier.weight(1f), singleLine = true)
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = { if (raw.isNotEmpty()) vm.send(raw) }) { Text(S.send) }
+            CardBox(Gold) {
+                CardTitle(S.sendCustom, "DIRECT", Gold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        raw, { raw = it }, modifier = Modifier.weight(1f), singleLine = true,
+                        shape = RoundedCornerShape(16.dp), colors = fieldColors(),
+                        placeholder = { Text("#GM:50,0", color = Steel, fontSize = 13.sp) }
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    PillButton(
+                        S.send, Gold, true, raw.isNotEmpty(), Modifier.width(88.dp), 54.dp,
+                        onClick = { if (raw.isNotEmpty()) vm.send(raw) }
+                    )
+                }
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { editing = Cmd(label = "", command = "", group = "سایر") }) {
-                    Icon(Icons.Default.Add, null); Text(S.newCommand)
-                }
-                OutlinedButton(onClick = { vm.resetDefaults() }) { Text(S.defaults) }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PillButton(
+                    S.newCommand, Mint, true, true, Modifier.weight(1f), 50.dp,
+                    onClick = { editing = Cmd(label = "", command = "", group = "سایر") }
+                )
+                PillButton(S.defaults, Steel, false, true, Modifier.weight(1f), 50.dp, onClick = { vm.resetDefaults() })
             }
         }
-        items(vm.commands, key = { it.id }) { c ->
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Surface2)) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("${S.group(c.group)} \u2022 ${S.cmdLabel(c)}")
-                        Text(S.sentCommand(c.command), fontSize = 11.sp, color = Grey)
-                    }
-                    IconButton(onClick = { editing = c }) { Icon(Icons.Default.Edit, null) }
-                    if (c.action == "NONE") {
-                        IconButton(onClick = { vm.delete(c.id) }) { Icon(Icons.Default.Delete, null) }
-                    }
-                }
+        grouped.forEach { (g, list) ->
+            item(key = "grp_$g") {
+                Text(S.group(g), color = Steel, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
+            }
+            items(list, key = { it.id }) { c ->
+                CommandRow(c, S, { editing = c }, if (c.action == "NONE") ({ vm.delete(c.id) }) else null)
             }
         }
+        item { Spacer(Modifier.height(8.dp)) }
     }
     editing?.let { cmd ->
         var label by remember(cmd.id) { mutableStateOf(S.cmdLabel(cmd)) }
@@ -451,19 +489,34 @@ fun SettingsScreen(vm: MainViewModel) {
             .filter { it != "سیستمی" }.distinct()
         AlertDialog(
             onDismissRequest = { editing = null },
+            containerColor = Surface2,
+            shape = RoundedCornerShape(28.dp),
+            titleContentColor = Silver,
+            textContentColor = Silver,
             title = { Text(S.editCommand) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(label, { label = it }, label = { Text(S.buttonName) }, singleLine = true)
-                    OutlinedTextField(command, { command = it }, label = { Text(S.commandField) }, singleLine = true)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        label, { label = it }, label = { Text(S.buttonName) }, singleLine = true,
+                        shape = RoundedCornerShape(16.dp), colors = fieldColors()
+                    )
+                    OutlinedTextField(
+                        command, { command = it }, label = { Text(S.commandField) }, singleLine = true,
+                        shape = RoundedCornerShape(16.dp), colors = fieldColors()
+                    )
                     if (cmd.action == "NONE") {
-                        OutlinedTextField(group, { group = it }, label = { Text(S.groupField) }, singleLine = true)
+                        OutlinedTextField(
+                            group, { group = it }, label = { Text(S.groupField) }, singleLine = true,
+                            shape = RoundedCornerShape(16.dp), colors = fieldColors()
+                        )
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             groups.forEach { g ->
+                                val sel = group.trim() == g
                                 Text(
-                                    S.group(g), fontSize = 12.sp,
+                                    S.group(g), fontSize = 12.sp, color = if (sel) Cyan else Silver,
                                     modifier = Modifier.clip(RoundedCornerShape(50))
-                                        .background(if (group.trim() == g) Cyan.copy(alpha = 0.3f) else Color(0xFF222B3A))
+                                        .background(if (sel) Cyan.copy(alpha = 0.18f) else Surface3)
+                                        .border(1.dp, if (sel) Cyan else Hair, RoundedCornerShape(50))
                                         .clickable { group = g }
                                         .padding(horizontal = 12.dp, vertical = 6.dp)
                                 )
