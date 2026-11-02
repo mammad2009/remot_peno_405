@@ -755,6 +755,7 @@ private fun CpToggle(label: String, on: Boolean, accent: Color, modifier: Modifi
 @Composable
 private fun CpSound(g: GameController, en: Boolean) {
     fun tr(fa: String, e: String) = if (en) e else fa
+    val ctx = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CpToggle(tr("صدای احساسات", "Mood sounds"), g.voice.chirps, Cyan, Modifier.weight(1f)) { g.setChirps(!g.voice.chirps) }
@@ -762,8 +763,12 @@ private fun CpSound(g: GameController, en: Boolean) {
         }
         if (g.voice.speak && !g.voice.speakReady) {
             Text(
-                tr("صدای این زبان روی گوشی نصب نیست (تنظیمات گوشی ← تبدیل متن به گفتار)", "This language's voice isn't installed (Phone settings → Text-to-speech)"),
-                color = Gold, fontSize = 11.sp
+                tr(
+                    "صدای فارسی روی گوشی نصب نیست؛ فعلاً با صدای انگلیسی می‌خونه. برای فارسی اینجا رو لمس کن (تنظیمات تبدیل متن به گفتار) ←",
+                    "This language's voice isn't installed. Tap here to open Text-to-speech settings →"
+                ),
+                color = Gold, fontSize = 11.sp, lineHeight = 16.sp,
+                modifier = Modifier.clickable { openTtsSettings(ctx) }
             )
         }
         Spacer(Modifier.height(4.dp))
