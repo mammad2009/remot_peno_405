@@ -380,10 +380,45 @@ class CarVoice(private val ctx: Context) {
                 }
                 x.setPitch(1.45f)
                 x.setSpeechRate(1.05f)
+                // موتور پیش‌فرض فارسی نداره: بقیه‌ی موتورهای نصب‌شده رو یکی‌یکی امتحان کن
+                // (مثلاً eSpeak NG ؛ لازم نیست پیش‌فرض گوشی باشه)
+                if (!wanted && !en) {
+                    val others = try {
+                        x.engines.map { it.name }.filter { it != x.defaultEngine }
+                    } catch (e: Throwable) { emptyList() }
+                    tryEngine(others, 0, cands, x)
+                }
             } else ttsOk = false
             speakReady = wanted
         }
         tts = holder
+    }
+
+    private fun tryEngine(list: List<String>, i: Int, cands: List<Locale>, base: TextToSpeech) {
+        if (i >= list.size) return
+        var h: TextToSpeech? = null
+        h = TextToSpeech(ctx.applicationContext, TextToSpeech.OnInitListener { st ->
+            val y = h
+            var ok = false
+            if (st == TextToSpeech.SUCCESS && y != null && ttsLang == "fa") {
+                for (l in cands) {
+                    val r = y.setLanguage(l)
+                    if (r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED) { ok = true; break }
+                }
+            }
+            if (ok && y != null) {
+                y.setPitch(1.45f)
+                y.setSpeechRate(1.05f)
+                tts = y
+                ttsOk = true
+                fallbackEn = false
+                speakReady = true
+                try { base.shutdown() } catch (e: Throwable) {}
+            } else {
+                try { y?.shutdown() } catch (e: Throwable) {}
+                if (ttsLang == "fa") tryEngine(list, i + 1, cands, base)
+            }
+        }, list[i])
     }
 
     fun shutdown() {

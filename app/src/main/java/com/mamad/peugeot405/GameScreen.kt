@@ -120,7 +120,9 @@ fun GamePanel(vm: MainViewModel) {
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         CpHeader(vm, en)
-        CpTabs(g.sub, listOf(tr("کج کردن", "Tilt"), tr("پد لمسی", "Pad"), tr("رقص", "Dance"))) { g.sub = it }
+        CpTabs(g.sub, listOf(tr("کج کردن", "Tilt"), tr("پد لمسی", "Pad"), tr("رقص", "Dance"), tr("درایو", "Drive"))) {
+            if (it == 3) g.openDrive() else g.sub = it        // «درایو» تمام‌صفحه باز میشه ؛ تب قبلی سر جاش میمونه
+        }
 
         Box {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -245,17 +247,17 @@ private fun CpHeader(vm: MainViewModel, en: Boolean) {
 // ---------- تب‌ها با نشانگر لغزنده ----------
 @Composable
 private fun CpTabs(sel: Int, labels: List<String>, onSel: (Int) -> Unit) {
-    val accents = listOf(Cyan, Violet, Gold)
+    val accents = listOf(Cyan, Violet, Gold, Mint)
     val pos by animateFloatAsState(sel.toFloat(), tween(320), label = "cpTab")
-    val i = pos.toInt().coerceIn(0, 2)
-    val col = lerp(accents[i], accents[min(i + 1, 2)], (pos - i).coerceIn(0f, 1f))
+    val i = pos.toInt().coerceIn(0, 3)
+    val col = lerp(accents[i], accents[min(i + 1, 3)], (pos - i).coerceIn(0f, 1f))
     val shape = RoundedCornerShape(22.dp)
     // نشانگر فیزیکی است: همیشه از چپ به راست
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Box(
             Modifier.fillMaxWidth().luxPanel(shape).drawBehind {
                 val inset = 4.dp.toPx()
-                val w = (size.width - inset * 2f) / 3f
+                val w = (size.width - inset * 2f) / 4f
                 val x = inset + w * pos
                 drawRoundRect(col.copy(alpha = 0.16f), Offset(x, inset), Size(w, size.height - inset * 2f), CornerRadius(18.dp.toPx()))
                 drawRoundRect(
@@ -265,7 +267,7 @@ private fun CpTabs(sel: Int, labels: List<String>, onSel: (Int) -> Unit) {
             }.padding(4.dp)
         ) {
             Row {
-                for (k in 0..2) {
+                for (k in 0..3) {
                     val tint = lerp(Steel, accents[k], (1f - abs(pos - k)).coerceIn(0f, 1f))
                     Column(
                         Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).clickable { onSel(k) }.padding(vertical = 10.dp),
@@ -276,7 +278,8 @@ private fun CpTabs(sel: Int, labels: List<String>, onSel: (Int) -> Unit) {
                             when (k) {
                                 0 -> cpIconTilt(tint)
                                 1 -> cpIconPad(tint)
-                                else -> cpIconBars(tint)
+                                2 -> cpIconBars(tint)
+                                else -> cpIconDrive(tint)
                             }
                         }
                         Text(
@@ -314,6 +317,25 @@ private fun DrawScope.cpIconPad(c: Color) {
     drawLine(c.copy(alpha = 0.6f), Offset(w * 0.10f, h / 2f), Offset(w * 0.90f, h / 2f), sw * 0.7f, StrokeCap.Round)
     drawLine(c.copy(alpha = 0.6f), Offset(w / 2f, h * 0.10f), Offset(w / 2f, h * 0.90f), sw * 0.7f, StrokeCap.Round)
     drawCircle(c, w * 0.08f, ctr)
+}
+
+// آیکن «درایو»: چهار فلش دور یک نقطه
+private fun DrawScope.cpIconDrive(c: Color) {
+    val w = size.width
+    val h = size.height
+    val sw = w * 0.085f
+    val ctr = Offset(w / 2f, h / 2f)
+    drawCircle(c, w * 0.09f, ctr)
+    for (k in 0..3) {
+        val a = Math.toRadians(k * 90.0 - 90.0)
+        val ux = Math.cos(a).toFloat()
+        val uy = Math.sin(a).toFloat()
+        val tip = Offset(ctr.x + ux * w * 0.44f, ctr.y + uy * h * 0.44f)
+        val base = Offset(ctr.x + ux * w * 0.26f, ctr.y + uy * h * 0.26f)
+        drawLine(c, base, tip, sw, StrokeCap.Round)
+        drawLine(c, tip, Offset(tip.x - ux * w * 0.14f - uy * w * 0.14f, tip.y - uy * h * 0.14f + ux * h * 0.14f), sw, StrokeCap.Round)
+        drawLine(c, tip, Offset(tip.x - ux * w * 0.14f + uy * w * 0.14f, tip.y - uy * h * 0.14f - ux * h * 0.14f), sw, StrokeCap.Round)
+    }
 }
 
 private fun DrawScope.cpIconBars(c: Color) {

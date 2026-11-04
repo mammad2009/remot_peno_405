@@ -13,6 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 // یک رویداد ضبط‌شده: t = میلی‌ثانیه از شروع ، k = نوع
@@ -20,6 +21,13 @@ import kotlin.math.roundToInt
 //  B = ضرب موسیقی (a=قدرت)           D = رقص روشن/خاموش (a=1/0)   P = ایموجی چشم (a=شماره‌ی حالت)
 // پرش بدنه‌ی برنامه روی هر ضرب موسیقی (اگه با رقص خودِ ماکت تداخل داشت false کن)
 private const val DANCE_BOUNCE = true
+
+// «درایو»: سرعت ثابت حرکت سرووها (کمی سریع‌تر از دکمه‌ی آرام که ۲۵ درجه در ثانیه‌ست → حدود ۴۰ درجه در ثانیه)
+//  ارتفاع: بازه‌ی سروو ≈ ۳۲ درجه → ۴۰/۳۲×۱۰۰ ؛ الاکلنگی: هر واحد = ۰٫۱۲ درجه → ۴۰/۰٫۱۲
+private const val DRIVE_H_PER_S = 125f
+private const val DRIVE_D_PER_S = 333f
+private const val DRIVE_ENTER = 16f        // درجه‌ی کج شدن برای شروع حرکت
+private const val DRIVE_LEAVE = 9f         // زیر این مقدار = گوشی صاف شده ← بایست
 
 class GameEv(val t: Int, val k: Char, val a: Int, val b: Int)
 class GameRec(val dur: Int, val ev: List<GameEv>)
@@ -56,6 +64,17 @@ class GameController(
     var zeroP by mutableFloatStateOf(0f); private set
     var zeroR by mutableFloatStateOf(0f); private set
     private var calAt = 0L
+
+    // «درایو»: ۴ جهت با سرعت ثابت. گوشی به یکی از ۴ سمت کج شد → سرووها با سرعت ثابت میرن ؛ صاف شد → همون‌جا میایستن
+    //  جهت‌ها: 1 بالا (هر دو بالا) ، 2 پایین (هر دو پایین) ، 3 چپ (عقب بالا) ، 4 راست (جلو بالا)
+    var driveOpen by mutableStateOf(false); private set
+    var driveDir by mutableIntStateOf(0); private set
+    private var driveZeroP = 0f
+    private var driveZeroR = 0f
+    private var driveCalAt = 0L
+    private var driveLast = 0L
+    private var driveH = 0f
+    private var driveD = 0f
 
     // آنچه ماکت میگه
     var mood by mutableIntStateOf(-1); private set        // آخرین حالت چشم ماکت
@@ -112,6 +131,8 @@ class GameController(
         stopRec(true)
         stopBeat()
         tiltStop()
+        driveOpen = false
+        driveDir = 0
         pump?.cancel()
         pump = null
         on = false
@@ -134,6 +155,7 @@ class GameController(
                 delay(66)
                 val now = SystemClock.uptimeMillis()
                 if (tiltOn && playing < 0 && tilt.started) tiltStep(now)
+                if (driveOpen && playing < 0 && tilt.started) driveStep(now)
                 if (h != sentH || d != sentD) {
                     sentH = h; sentD = d
                     tx("#GM:$h,$d\n")
@@ -187,6 +209,67 @@ class GameController(
             val r = (tilt.roll - zeroR) / 28f
             h = (50f + r * 50f).roundToInt().coerceIn(0, 100)
         }
+    }
+
+    // ---------------- درایو ----------------
+    fun openDrive() {
+        if (!on || playing >= 0 || driveOpen) return
+        tiltStop()
+        stopBeat()
+        driveH = h.toFloat()
+        driveD = d.toFloat()
+        driveDir = 0
+        driveOpen = true
+        tilt.start()
+        driveCalAt = SystemClock.uptimeMillis() + 400L
+        driveLast = 0L
+    }
+
+    fun closeDrive() {
+        if (!driveOpen) return
+        driveOpen = false
+        driveDir = 0
+        tilt.stop()
+        if (sub == 0) tiltStart()
+    }
+
+    fun driveCalibrate() {
+        driveZeroP = tilt.pitch
+        driveZeroR = tilt.roll
+    }
+
+    private fun driveStep(now: Long) {
+        if (driveCalAt != 0L) {
+            if (now < driveCalAt) return
+            driveCalibrate()
+            driveCalAt = 0L
+            driveLast = now
+            return
+        }
+        val dt = (now - driveLast).coerceIn(1L, 200L) / 1000f
+        driveLast = now
+        val sgn = if (invert) -1f else 1f
+        val dp = (tilt.pitch - driveZeroP) * sgn               // مثبت = بالای گوشی عقب رفت
+        val dr = tilt.roll - driveZeroR                        // مثبت = گوشی به راست کج شد
+        val mag = max(abs(dp), abs(dr))
+        val cand = if (abs(dp) >= abs(dr)) (if (dp > 0f) 1 else 2) else (if (dr > 0f) 4 else 3)
+        var dir = driveDir
+        dir = if (dir == 0) {
+            if (mag > DRIVE_ENTER) cand else 0
+        } else {
+            if (mag < DRIVE_LEAVE) 0 else if (mag > DRIVE_ENTER) cand else dir
+        }
+        when (dir) {
+            1 -> driveH += DRIVE_H_PER_S * dt
+            2 -> driveH -= DRIVE_H_PER_S * dt
+            3 -> driveD -= DRIVE_D_PER_S * dt
+            4 -> driveD += DRIVE_D_PER_S * dt
+        }
+        driveH = driveH.coerceIn(0f, 100f)
+        driveD = driveD.coerceIn(-100f, 100f)
+        h = driveH.roundToInt()
+        d = driveD.roundToInt()
+        if (dir != driveDir) driveDir = dir
     }
 
     fun updateInvert(v: Boolean) { invert = v; prefs.edit().putBoolean("invert", v).apply() }
