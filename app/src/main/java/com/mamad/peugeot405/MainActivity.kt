@@ -128,6 +128,7 @@ fun AppRoot(
             RemoteIntro(vm, onLeaving = { transition = true }, onDone = { phase = 2; transition = false })
         }
         RemoteOverlay(vm, showRemote) { showRemote = false }
+        if (vm.game.driveOpen) DriveOverlay(vm)          // «درایو»: تمام‌صفحه روی همه‌چیز
     }
     if (showConnect) {
         ConnectDialog(vm, { showConnect = false }, onOpenWifi)
