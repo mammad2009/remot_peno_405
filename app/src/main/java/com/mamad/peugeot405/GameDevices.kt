@@ -2,7 +2,6 @@ package com.mamad.peugeot405
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -195,19 +194,6 @@ class BeatListener(private val onBeat: (Int) -> Unit) {
 //  ۳) صدای ماکت: بوق‌های رباتی (ساخته‌شده با کد ، بدون فایل صوتی) + خوندن متن‌ها با TTS گوشی
 //  ماکت وقتی #EV:1 باشه حالت چشم / متن / واکنش کوچکش رو میفرسته و اینجا صداش درمیاد
 // ======================================================================
-// باز کردن تنظیمات «تبدیل متن به گفتار» گوشی (برای نصب صدای فارسی یا عوض کردن موتور)
-fun openTtsSettings(ctx: Context) {
-    val tries = listOf(Intent("com.android.settings.TTS_SETTINGS"), Intent(android.provider.Settings.ACTION_SETTINGS))
-    for (i in tries) {
-        try {
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            ctx.startActivity(i)
-            return
-        } catch (e: Throwable) {
-        }
-    }
-}
-
 class CarVoice(private val ctx: Context) {
     var chirps by mutableStateOf(true)
     var speak by mutableStateOf(false)
@@ -219,7 +205,6 @@ class CarVoice(private val ctx: Context) {
     private var tts: TextToSpeech? = null
     private var ttsOk = false
     private var ttsLang = ""
-    @Volatile private var fallbackEn = false                 // فارسی نصب نیست ← با صدای انگلیسی بخون
 
     private class N(val f0: Float, val f1: Float, val ms: Int, val v: Float = 0.5f, val noise: Boolean = false)
 
@@ -343,7 +328,7 @@ class CarVoice(private val ctx: Context) {
         ensureTts(en)
         if (!ttsOk) return
         val t = TEXTS.getOrNull(i) ?: return
-        val raw = if (en || fallbackEn) t.en else t.fa
+        val raw = if (en) t.en else t.fa
         val clean = raw.replace("♥", "").replace("…", " ").replace("...", " ").replace("؟!", "؟").trim()
         tts?.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "405")
     }
@@ -356,69 +341,20 @@ class CarVoice(private val ctx: Context) {
         tts?.shutdown()
         tts = null
         ttsOk = false
-        fallbackEn = false
         ttsLang = lang
-        // موتورهای مختلف فارسی رو با اسم‌های مختلفی معرفی میکنن ؛ همه رو امتحان کن
-        val cands = if (en) listOf(Locale.US, Locale.ENGLISH)
-        else listOf(Locale("fa", "IR"), Locale("fa"), Locale("fa", "AF"))
+        val loc = if (en) Locale.US else Locale("fa", "IR")
         var holder: TextToSpeech? = null
         holder = TextToSpeech(ctx.applicationContext) { st ->
             val x = holder
-            var wanted = false
             if (st == TextToSpeech.SUCCESS && x != null) {
-                for (l in cands) {
-                    val r = x.setLanguage(l)
-                    if (r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED) { wanted = true; break }
-                }
-                ttsOk = wanted
-                if (!wanted && !en) {                       // صدای فارسی نیست: حداقل انگلیسی بخونه
-                    val r = x.setLanguage(Locale.US)
-                    if (r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED) {
-                        ttsOk = true
-                        fallbackEn = true
-                    }
-                }
+                val res = x.setLanguage(loc)
+                ttsOk = res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED
                 x.setPitch(1.45f)
                 x.setSpeechRate(1.05f)
-                // موتور پیش‌فرض فارسی نداره: بقیه‌ی موتورهای نصب‌شده رو یکی‌یکی امتحان کن
-                // (مثلاً eSpeak NG ؛ لازم نیست پیش‌فرض گوشی باشه)
-                if (!wanted && !en) {
-                    val others = try {
-                        x.engines.map { it.name }.filter { it != x.defaultEngine }
-                    } catch (e: Throwable) { emptyList() }
-                    tryEngine(others, 0, cands, x)
-                }
             } else ttsOk = false
-            speakReady = wanted
+            speakReady = ttsOk
         }
         tts = holder
-    }
-
-    private fun tryEngine(list: List<String>, i: Int, cands: List<Locale>, base: TextToSpeech) {
-        if (i >= list.size) return
-        var h: TextToSpeech? = null
-        h = TextToSpeech(ctx.applicationContext, TextToSpeech.OnInitListener { st ->
-            val y = h
-            var ok = false
-            if (st == TextToSpeech.SUCCESS && y != null && ttsLang == "fa") {
-                for (l in cands) {
-                    val r = y.setLanguage(l)
-                    if (r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED) { ok = true; break }
-                }
-            }
-            if (ok && y != null) {
-                y.setPitch(1.45f)
-                y.setSpeechRate(1.05f)
-                tts = y
-                ttsOk = true
-                fallbackEn = false
-                speakReady = true
-                try { base.shutdown() } catch (e: Throwable) {}
-            } else {
-                try { y?.shutdown() } catch (e: Throwable) {}
-                if (ttsLang == "fa") tryEngine(list, i + 1, cands, base)
-            }
-        }, list[i])
     }
 
     fun shutdown() {

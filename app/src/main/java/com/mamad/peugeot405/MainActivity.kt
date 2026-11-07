@@ -128,7 +128,6 @@ fun AppRoot(
             RemoteIntro(vm, onLeaving = { transition = true }, onDone = { phase = 2; transition = false })
         }
         RemoteOverlay(vm, showRemote) { showRemote = false }
-        if (vm.game.driveOpen) DriveOverlay(vm)          // «درایو»: تمام‌صفحه روی همه‌چیز
     }
     if (showConnect) {
         ConnectDialog(vm, { showConnect = false }, onOpenWifi)
@@ -157,6 +156,7 @@ fun MenuLayer(
                     0 -> ControlScreen(vm)
                     1 -> LightsScreen(vm)
                     2 -> MenuScreen(vm, onExit = { vm.selectTab(0) })
+                    4 -> ChatScreen(vm)
                     else -> SettingsScreen(vm)
                 }
             }
@@ -183,6 +183,9 @@ fun FloatingNav(tab: Int, onTab: (Int) -> Unit) {
         }
         NavItem(tab == 2, S.navMenu, Gold, Modifier.weight(1f), { onTab(2) }) { tint ->
             Canvas(Modifier.size(24.dp)) { drawGearIcon(tint) }
+        }
+        NavItem(tab == 4, if (S.lang == "en") "Chat" else "چت", Mint, Modifier.weight(1f), { onTab(4) }) { tint ->
+            Canvas(Modifier.size(24.dp)) { drawChatIcon(tint) }
         }
         NavItem(tab == 3, S.navCommands, Violet, Modifier.weight(1f), { onTab(3) }) { tint ->
             Icon(Icons.Default.Settings, null, tint = tint)
@@ -221,6 +224,19 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBulbIcon(color:
     drawCircle(color, w * 0.28f, Offset(w / 2f, h * 0.40f), style = Stroke(w * 0.09f))
     drawLine(color, Offset(w * 0.38f, h * 0.80f), Offset(w * 0.62f, h * 0.80f), w * 0.09f, StrokeCap.Round)
     drawLine(color, Offset(w * 0.42f, h * 0.93f), Offset(w * 0.58f, h * 0.93f), w * 0.09f, StrokeCap.Round)
+}
+
+// آیکن حباب گفتگو (برای تب چت)
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawChatIcon(color: Color) {
+    val w = size.width
+    val h = size.height
+    drawRoundRect(
+        color, Offset(w * 0.12f, h * 0.16f), androidx.compose.ui.geometry.Size(w * 0.76f, h * 0.52f),
+        androidx.compose.ui.geometry.CornerRadius(w * 0.14f, w * 0.14f), style = Stroke(w * 0.09f)
+    )
+    drawLine(color, Offset(w * 0.34f, h * 0.68f), Offset(w * 0.30f, h * 0.88f), w * 0.09f, StrokeCap.Round)
+    drawLine(color, Offset(w * 0.30f, h * 0.88f), Offset(w * 0.50f, h * 0.68f), w * 0.09f, StrokeCap.Round)
+    for (k in 0 until 3) drawCircle(color, w * 0.045f, Offset(w * (0.34f + 0.16f * k), h * 0.42f))
 }
 
 // آیکن چرخ‌دنده (برای تب منو)

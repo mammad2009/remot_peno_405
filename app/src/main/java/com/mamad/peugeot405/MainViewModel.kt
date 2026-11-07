@@ -153,6 +153,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 outbox.trySend("#MODE:0\n")                 // همیشه از حالت دستی شروع کن (ماکت ممکنه از جلسه‌ی قبل تو بازی/رقص مونده باشه)
                 outbox.trySend("#EV:0\n")
                 outbox.trySend("#GET\n")                    // وضعیت ماکت را بخوان
+                val cal = java.util.Calendar.getInstance()
+                outbox.trySend("#TIME:" + cal.get(java.util.Calendar.HOUR_OF_DAY) + "," + cal.get(java.util.Calendar.MINUTE) + "\n")   // ساعت گوشی
             }
             .onFailure {
                 connected = false
@@ -239,6 +241,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // برای حالت بازی: بدون پیغام خطا (وقتی وصل نیستیم هیچ‌کاری نمیکند)
     fun sendQuiet(text: String) {
         if (connected) outbox.trySend(text)
+    }
+
+    // ---------------- چت: متن فارسی روی نمایشگر ماکت (ماکت خودش حروف را شکل می‌دهد) ----------------
+    val chatLog = androidx.compose.runtime.mutableStateListOf<String>()
+
+    fun say(text: String) {
+        val t = text.replace('\n', ' ').replace('\r', ' ').trim().take(90)
+        if (t.isEmpty()) return
+        if (!connected) { setStatus(St.NEED_CONNECT); return }
+        outbox.trySend("#SAY:" + t + "\n")
+        chatLog.add(t)
+        if (chatLog.size > 30) chatLog.removeAt(0)
+    }
+
+    // ساعت گوشی را به ماکت می‌فرستد (صبح بخیر / شب بخیر / خواب‌آلودی شبانه)
+    fun syncClock() {
+        val c = java.util.Calendar.getInstance()
+        sendQuiet("#TIME:" + c.get(java.util.Calendar.HOUR_OF_DAY) + "," + c.get(java.util.Calendar.MINUTE) + "\n")
     }
 
     // کاراکتری که شبیه‌ساز باید ببیند (مطابق کد آردوینو، مستقل از فرمانی که کاربر ویرایش کرده)
