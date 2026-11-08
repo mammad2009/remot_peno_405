@@ -788,10 +788,12 @@ private fun BatteryPage(vm: MainViewModel, onBack: () -> Unit) {
     val pct = if (on) (i["bp"] ?: 0).coerceIn(0, 100) else 0
     val bl = i["bl"] ?: 4
     val col = if (on) levelColor(bl) else Steel
+    val shownV = (i["bw"] ?: ((i["bv"] ?: 0) * 10)) / 100.0      // ولتاژ پک با دقت ۰٫۰۱ ولت
 
     var lo by remember(ready, vm.syncTick) { mutableIntStateOf(i["lo"] ?: 20) }
     var cr by remember(ready, vm.syncTick) { mutableIntStateOf(i["cr"] ?: 8) }
     var ca by remember(ready, vm.syncTick) { mutableIntStateOf(i["ca"] ?: 100) }
+    var rv by remember(ready, vm.syncTick) { mutableIntStateOf((i["bw"] ?: ((i["bv"] ?: 0) * 10)).coerceIn(600, 900)) }
     var savedFlash by remember { mutableStateOf(false) }
     LaunchedEffect(savedFlash) {
         if (savedFlash) {
@@ -843,7 +845,7 @@ private fun BatteryPage(vm: MainViewModel, onBack: () -> Unit) {
                             Text(
                                 if (on) levelText(S, bl) else S.bOffText, color = Steel, fontSize = 13.sp
                             )
-                            if (on) Text("${(i["bv"] ?: 0) / 10.0} V", color = Silver, fontSize = 13.sp, fontWeight = FontWeight.Light)
+                            if (on) Text(String.format("%.2f V", shownV), color = Silver, fontSize = 13.sp, fontWeight = FontWeight.Light)
                         }
                     }
                 }
@@ -871,6 +873,22 @@ private fun BatteryPage(vm: MainViewModel, onBack: () -> Unit) {
                     ValueSlider(S.bLow, lo, 8, 60, Gold, "%", { lo = it; if (cr > it - 3) cr = it - 3 }, {})
                     ValueSlider(S.bCrit, cr, 2, 30, Danger, "%", { cr = it; if (lo < it + 3) lo = it + 3 }, {})
                     ValueSlider(S.bCal + "  (×0.01)", ca, 50, 200, Cyan, "", { ca = it }, {})
+                    ValueSlider(
+                        (if (S.lang == "en") "Real voltage (multimeter)" else "ولتاژ واقعی (مولتی‌متر / ماژول)") + "  (×0.01 V)",
+                        rv, 600, 900, Gold, "", { rv = it }, {}
+                    )
+                    PillButton(
+                        label = if (S.lang == "en") "Auto-calibrate from real voltage" else "کالیبراسیون خودکار با ولتاژ واقعی",
+                        accent = Gold, filled = false, enabled = ready && on && shownV > 1.0,
+                        modifier = Modifier.fillMaxWidth(), height = 52.dp,
+                        onClick = {
+                            val applied = i["ca"] ?: 100
+                            val n = Math.round(applied * (rv / 100.0) / shownV).toInt().coerceIn(50, 200)
+                            ca = n
+                            vm.applyBattery(lo, cr, n)
+                            savedFlash = true
+                        }
+                    )
                     PillButton(
                         label = if (savedFlash) S.saved else S.sSave, accent = Ok, filled = true, enabled = ready,
                         modifier = Modifier.fillMaxWidth(), height = 52.dp,

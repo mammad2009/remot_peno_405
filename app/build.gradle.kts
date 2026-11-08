@@ -10,8 +10,8 @@ android {
         applicationId = "com.mamad.peugeot405"
         minSdk = 26
         targetSdk = 34
-        versionCode = 14
-        versionName = "5.4"
+        versionCode = 15
+        versionName = "5.5"
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
