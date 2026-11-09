@@ -23,6 +23,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // حالت بازی (i-Cockpit): کج کردن گوشی ، پد لمسی ، رقص با موسیقی ، حافظه‌ی ضبط حرکت ، صدای ماکت
     val game = GameController(app, viewModelScope) { t -> sendQuiet(t) }
 
+    // وضعیت زنده‌ی بازی‌های روی نمایشگر ماکت (تب «بازی»)
+    val live = GameLive(app)
+
     // شبیه‌ساز کد آردوینو؛ نوار ارتفاع و کج شدن آرم از روی آن می‌آید
     val sim = SketchSim()
 
@@ -104,6 +107,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun lostConnection(why: St) {
+        live.clear()
         readJob?.cancel()
         connected = false
         battery = null
@@ -203,6 +207,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun parseLine(line: String) {
         if (line.startsWith("EV:")) {
             game.onEvent(line, lang == "en")
+        } else if (line.startsWith("GS:")) {
+            live.onLine(line)
         } else if (line.startsWith("BAT:")) {
             val v = line.substring(4).trim().toIntOrNull()
             battery = if (v == null || v < 0) null else v.coerceIn(0, 100)
