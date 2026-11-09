@@ -116,30 +116,24 @@ fun ChatScreen(vm: MainViewModel) {
             }
         }
 
-        // ---------- بازی و ساعت ----------
+        // ---------- ساعت و رمز مخفی ----------
         ChatCard {
-            Text(tr("بازی و ساعت", "Game & clock"), color = Silver, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text(tr("ساعت و رمز مخفی", "Clock & secret"), color = Silver, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 tr(
-                    "بازی حافظه: ماکت راهنمای راست و چپ را به ترتیب چشمک می‌زند ؛ تو در بخش «چراغ‌ها» همان ترتیب را با دکمه‌ی راهنمای راست و چپ تکرار کن. هر دور یک مرحله بلندتر می‌شود (تا ۸). دوباره بزنی بازی تمام می‌شود.",
-                    "Memory game: the car blinks the right/left indicators in a sequence; repeat it with the indicator buttons in the Lights tab. Each round gets longer (up to 8). Press again to stop."
+                    "ساعت گوشی هنگام هر اتصال خودکار به ماکت فرستاده می‌شود (صبح بخیر ، شب بخیر ، خواب‌آلودی شبانه). بازی‌ها در تب «بازی» هستند.",
+                    "The phone clock is sent on every connection (good morning / good night / sleepy at night). Games are in the Games tab."
                 ),
                 color = Steel, fontSize = 11.5.sp, lineHeight = 16.sp
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                PillButton(
-                    tr("بازی حافظه (شروع/پایان)", "Memory game (start/stop)"), Gold, true, true,
-                    Modifier.weight(1f), 52.dp, onClick = { vm.send("G") }
-                )
-                PillButton(
-                    tr("همگام‌سازی ساعت", "Sync clock"), Mint, false, true,
-                    Modifier.weight(1f), 52.dp, onClick = { vm.syncClock() }
-                )
-            }
+            PillButton(
+                tr("همگام‌سازی ساعت", "Sync clock"), Mint, false, true,
+                Modifier.fillMaxWidth(), 52.dp, onClick = { vm.syncClock() }
+            )
             Text(
                 tr(
-                    "رمز مخفی: راهنمای چپ ، راست ، چپ (در ۵ ثانیه). ۱۰ بار پشت‌سرهم زدن یک چراغ = ۳۰ ثانیه چراغ‌ها دست خود ماکت!",
-                    "Secret: left, right, left indicator within 5 seconds. Tapping one light 10 times in a row = the car takes over the lights for 30 s!"
+                    "رمز مخفی: راهنمای چپ ، راست ، چپ (در ۵ ثانیه). ۱۰ بار پشت‌سرهم زدن یک چراغ = ۳۰ ثانیه چراغ‌ها دست خود ماکت! (وسط بازی غیرفعال است.)",
+                    "Secret: left, right, left indicator within 5 seconds. Tapping one light 10 times in a row = the car takes over the lights for 30 s (disabled during games)."
                 ),
                 color = Steel, fontSize = 11.5.sp, lineHeight = 16.sp
             )

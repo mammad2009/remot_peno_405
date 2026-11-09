@@ -158,6 +158,7 @@ fun MenuLayer(
                     1 -> LightsScreen(vm)
                     2 -> MenuScreen(vm, onExit = { vm.selectTab(0) })
                     4 -> ChatScreen(vm)
+                    5 -> GamesScreen(vm)
                     else -> SettingsScreen(vm)
                 }
             }
@@ -187,6 +188,9 @@ fun FloatingNav(tab: Int, onTab: (Int) -> Unit) {
         }
         NavItem(tab == 4, if (S.lang == "en") "Chat" else "چت", Mint, Modifier.weight(1f), { onTab(4) }) { tint ->
             Canvas(Modifier.size(24.dp)) { drawChatIcon(tint) }
+        }
+        NavItem(tab == 5, if (S.lang == "en") "Games" else "بازی", Gold, Modifier.weight(1f), { onTab(5) }) { tint ->
+            Canvas(Modifier.size(24.dp)) { drawGameIcon(tint) }
         }
         NavItem(tab == 3, S.navCommands, Violet, Modifier.weight(1f), { onTab(3) }) { tint ->
             Icon(Icons.Default.Settings, null, tint = tint)
@@ -225,6 +229,20 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBulbIcon(color:
     drawCircle(color, w * 0.28f, Offset(w / 2f, h * 0.40f), style = Stroke(w * 0.09f))
     drawLine(color, Offset(w * 0.38f, h * 0.80f), Offset(w * 0.62f, h * 0.80f), w * 0.09f, StrokeCap.Round)
     drawLine(color, Offset(w * 0.42f, h * 0.93f), Offset(w * 0.58f, h * 0.93f), w * 0.09f, StrokeCap.Round)
+}
+
+// آیکن دسته‌ی بازی (برای تب بازی)
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGameIcon(color: Color) {
+    val w = size.width
+    val h = size.height
+    drawRoundRect(
+        color, Offset(w * 0.06f, h * 0.28f), androidx.compose.ui.geometry.Size(w * 0.88f, h * 0.46f),
+        androidx.compose.ui.geometry.CornerRadius(w * 0.2f, w * 0.2f), style = Stroke(w * 0.09f)
+    )
+    drawLine(color, Offset(w * 0.28f, h * 0.42f), Offset(w * 0.28f, h * 0.60f), w * 0.08f, StrokeCap.Round)
+    drawLine(color, Offset(w * 0.19f, h * 0.51f), Offset(w * 0.37f, h * 0.51f), w * 0.08f, StrokeCap.Round)
+    drawCircle(color, w * 0.05f, Offset(w * 0.68f, h * 0.45f))
+    drawCircle(color, w * 0.05f, Offset(w * 0.78f, h * 0.57f))
 }
 
 // آیکن حباب گفتگو (برای تب چت)
