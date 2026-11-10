@@ -66,18 +66,18 @@ class WifiClient(context: Context) {
     fun lines(): Flow<String> = flow {
         val input = socket?.getInputStream()
         if (input != null) {
-            val sb = StringBuilder()
+            val sb = java.io.ByteArrayOutputStream()      // بایت‌ها رو جمع میکنیم و آخر خط UTF-8 میخونیم (جمله‌های فارسی S:)
             val buf = ByteArray(128)
             while (true) {
                 val n = try { input.read(buf) } catch (e: Exception) { -1 }
                 if (n < 0) break
                 for (i in 0 until n) {
-                    val ch = buf[i].toInt().toChar()
-                    if (ch == '\n') {
-                        emit(sb.toString().trim())
-                        sb.setLength(0)
-                    } else if (ch != '\r' && sb.length < 96) {
-                        sb.append(ch)
+                    val b = buf[i].toInt()
+                    if (b == 10) {
+                        emit(String(sb.toByteArray(), Charsets.UTF_8).trim())
+                        sb.reset()
+                    } else if (b != 13 && sb.size() < 220) {
+                        sb.write(b)
                     }
                 }
             }

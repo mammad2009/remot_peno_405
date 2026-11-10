@@ -26,6 +26,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // وضعیت زنده‌ی بازی‌های روی نمایشگر ماکت (تب «بازی»)
     val live = GameLive(app)
 
+    // مغز ماکت v33: وضعیت رابطه/نیازها/امتیاز ، لرزش و فرمان صوتی
+    val brain = BrainState(app)
+    val shake = ShakeDetector(app) { sendQuiet("#SHAKE\n") }
+    val voiceCmd = VoiceCmd(app) { w, said ->
+        brain.setNote("🎙 $said")
+        sendQuiet("#CMD:$w\n")
+    }
+
     // شبیه‌ساز کد آردوینو؛ نوار ارتفاع و کج شدن آرم از روی آن می‌آید
     val sim = SketchSim()
 
@@ -157,8 +165,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 outbox.trySend("#MODE:0\n")                 // همیشه از حالت دستی شروع کن (ماکت ممکنه از جلسه‌ی قبل تو بازی/رقص مونده باشه)
                 outbox.trySend("#EV:0\n")
                 outbox.trySend("#GET\n")                    // وضعیت ماکت را بخوان
-                val cal = java.util.Calendar.getInstance()
-                outbox.trySend("#TIME:" + cal.get(java.util.Calendar.HOUR_OF_DAY) + "," + cal.get(java.util.Calendar.MINUTE) + "\n")   // ساعت گوشی
+                outbox.trySend(timeLine())                   // ساعت گوشی + روز سال
+                brain.savedScore()?.let { outbox.trySend("#SCORE:$it\n") }   // ماکت امتیازها و رابطه رو «یادش میاد»
+                outbox.trySend("#HAB:" + brain.habLine() + "\n")            // عادت اومدن (ساعت‌های اتصال)
+                outbox.trySend("#BR:1\n")                   // گزارش‌های مغز (ST: S: V: AC:) رو بفرست
             }
             .onFailure {
                 connected = false
@@ -205,6 +215,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun parseLine(line: String) {
+        if (line.startsWith("ST:")) { brain.onStatus(line); return }
+        if (line.startsWith("HB:")) { brain.onHab(line); return }
+        if (line.startsWith("S:")) { game.voice.speakText(line.substring(2), lang == "en"); return }
+        if (line.startsWith("V:")) { line.substring(2).toIntOrNull()?.let { brain.buzz(it) }; return }
+        if (line.startsWith("AC:")) {
+            val i = line.substring(3).toIntOrNull() ?: return
+            val names = if (lang == "en") BrainState.ACH_EN else BrainState.ACH_FA
+            brain.setNote("🏆 " + (names.getOrNull(i) ?: ""))
+            return
+        }
+        if (line.startsWith("CH:done")) { brain.setNote(if (lang == "en") "✅ Daily challenge done!" else "✅ چالش امروز تموم شد!"); return }
         if (line.startsWith("EV:")) {
             game.onEvent(line, lang == "en")
         } else if (line.startsWith("GS:")) {
@@ -262,9 +283,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ساعت گوشی را به ماکت می‌فرستد (صبح بخیر / شب بخیر / خواب‌آلودی شبانه)
-    fun syncClock() {
+    fun syncClock() = sendQuiet(timeLine())
+
+    // #TIME:ساعت,دقیقه,روزسال (روزسال برای چالش روزانه‌ی ماکت)
+    private fun timeLine(): String {
         val c = java.util.Calendar.getInstance()
-        sendQuiet("#TIME:" + c.get(java.util.Calendar.HOUR_OF_DAY) + "," + c.get(java.util.Calendar.MINUTE) + "\n")
+        return "#TIME:" + c.get(java.util.Calendar.HOUR_OF_DAY) + "," + c.get(java.util.Calendar.MINUTE) + "," + c.get(java.util.Calendar.DAY_OF_YEAR) + "\n"
     }
 
     // کاراکتری که شبیه‌ساز باید ببیند (مطابق کد آردوینو، مستقل از فرمانی که کاربر ویرایش کرده)
@@ -532,5 +556,5 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun resetDefaults() { store.reset(); commands = DEFAULT_COMMANDS }
 
-    override fun onCleared() { game.shutdown(); bt.disconnect() }
+    override fun onCleared() { shake.stop(); voiceCmd.stop(); game.shutdown(); bt.disconnect() }
 }

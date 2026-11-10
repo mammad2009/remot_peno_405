@@ -4,7 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -65,6 +71,91 @@ private fun ChatCard(content: @Composable () -> Unit) {
     ) { content() }
 }
 
+
+// ---------- مغز ماکت (v33) ----------
+@Composable
+private fun BrainBar(label: String, v: Int, color: androidx.compose.ui.graphics.Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Steel, fontSize = 11.sp, modifier = Modifier.width(96.dp))
+        Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Hair2)) {
+            Box(Modifier.fillMaxWidth(v.coerceIn(0, 100) / 100f).fillMaxHeight().background(color))
+        }
+    }
+}
+
+@Composable
+private fun BrainCard(vm: MainViewModel) {
+    val S = LocalStrings.current
+    val en = S.lang == "en"
+    fun tr(fa: String, e: String) = if (en) e else fa
+    val a = vm.brain.st
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) vm.voiceCmd.start() }
+    val ctx = LocalContext.current
+    ChatCard {
+        Text(tr("مغز ماکت", "Car brain"), color = Silver, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        if (a.size < 17) {
+            Text(tr("منتظر اتصال یا کد ماکت v33...", "Waiting for a connection / v33 sketch..."), color = Steel, fontSize = 11.5.sp)
+        } else {
+            val stage = (if (en) BrainState.STAGE_EN else BrainState.STAGE_FA)[a[9].coerceIn(0, 3)]
+            Text(tr("سطح ", "Level ") + (a[1] / 100 + 1) + "  ·  " + a[1] + " XP  ·  " + stage + " (" + a[0] + "%)", color = Gold, fontSize = 14.sp)
+            BrainBar(tr("انرژی", "Energy"), a[10], Mint)
+            BrainBar(tr("حوصله‌سررفتگی", "Boredom"), a[11], Gold)
+            BrainBar(tr("دلتنگی", "Missing you"), a[12], Cyan)
+            val kind = a[14]
+            val chal = (if (en) BrainState.CHAL_EN else BrainState.CHAL_FA).getOrNull(kind)
+            Text(
+                if (chal == null) tr("چالش روزانه: منتظر ساعت گوشی", "Daily challenge: waiting for the phone clock")
+                else if (a[8] != 0) tr("✅ چالش امروز انجام شد", "✅ Today's challenge done")
+                else tr("🎯 چالش امروز: ", "🎯 Today: ") + chal + "  (" + a[15] + "/" + a[16] + ")",
+                color = Silver, fontSize = 12.5.sp
+            )
+            val names = if (en) BrainState.ACH_EN else BrainState.ACH_FA
+            Text(
+                names.indices.joinToString("   ") { (if ((a[2] shr it) and 1 == 1) "🏆 " else "▫ ") + names[it] },
+                color = Steel, fontSize = 11.5.sp, lineHeight = 18.sp
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PillButton(
+                tr("لرزش: ", "Vibrate: ") + (if (vm.brain.vibrate) tr("روشن", "on") else tr("خاموش", "off")), Mint, vm.brain.vibrate, true,
+                Modifier.weight(1f), 46.dp, onClick = { vm.brain.setVibrate(!vm.brain.vibrate) }
+            )
+            PillButton(
+                tr("صدای ماکت: ", "Voice: ") + (if (vm.game.voice.speak) tr("روشن", "on") else tr("خاموش", "off")), Cyan, vm.game.voice.speak, true,
+                Modifier.weight(1f), 46.dp, onClick = { vm.game.setSpeak(!vm.game.voice.speak, en) }
+            )
+        }
+        PillButton(
+            if (vm.voiceCmd.on) tr("🎙 فرمان صوتی روشن است (لمس = خاموش)", "🎙 Voice commands on (tap to stop)") else tr("🎙 فرمان صوتی (سلام ، قفل ، برقص ، بخواب ...)", "🎙 Voice commands (Persian)"),
+            Gold, vm.voiceCmd.on, true, Modifier.fillMaxWidth(), 48.dp,
+            onClick = {
+                if (vm.voiceCmd.on) vm.voiceCmd.stop()
+                else if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.RECORD_AUDIO) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED) vm.voiceCmd.start()
+                else launcher.launch(android.Manifest.permission.RECORD_AUDIO)
+            }
+        )
+        PillButton(
+            if (vm.shake.on) tr("📳 تکون دادن گوشی روشن است (لمس = خاموش)", "📳 Shake detection on (tap to stop)") else tr("📳 تکون دادن گوشی (۳ تکون تند)", "📳 Shake the phone (3 quick shakes)"),
+            Violet, vm.shake.on, true, Modifier.fillMaxWidth(), 46.dp,
+            onClick = { if (vm.shake.on) vm.shake.stop() else vm.shake.start() }
+        )
+        if (vm.voiceCmd.err == "NA") Text(tr("تشخیص گفتار روی این گوشی نیست.", "Speech recognition isn't available."), color = Steel, fontSize = 11.5.sp)
+        if (vm.brain.note.isNotEmpty()) Text(vm.brain.note, color = Silver, fontSize = 12.sp)
+        Text(tr("پیش‌نمایش انیمیشن‌ها روی نمایشگر ماکت:", "Preview animations on the car's display:"), color = Steel, fontSize = 11.5.sp)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(tr("🎂 تولد", "🎂 Birthday"), tr("🤧 عطسه", "🤧 Sneeze"), tr("🌅 صبح", "🌅 Morning"), tr("🏆 جام", "🏆 Trophy"), tr("🔌 شارژ", "🔌 Charge"), tr("🚗 استارت", "🚗 Engine start"))
+                .forEachIndexed { i, l -> ChatChip(l) { vm.sendLine("CINE:$i") } }
+            ChatChip(tr("💕 بارش قلب", "💕 Hearts")) { vm.sendLine("HEARTS") }
+        }
+        Text(
+            tr("امتیاز و رابطه روی همین گوشی ذخیره می‌شود و موقع اتصال به ماکت برمی‌گردد (ماکت چیزی در EEPROM نگه نمی‌دارد).",
+               "Score and relationship are saved on this phone and restored to the car on connect (the car stores nothing in EEPROM)."),
+            color = Steel, fontSize = 11.5.sp, lineHeight = 16.sp
+        )
+    }
+}
+
 @Composable
 fun ChatScreen(vm: MainViewModel) {
     val S = LocalStrings.current
@@ -115,6 +206,8 @@ fun ChatScreen(vm: MainViewModel) {
                 Text("›  $m", color = Steel, fontSize = 12.sp)
             }
         }
+
+        BrainCard(vm)
 
         // ---------- ساعت و رمز مخفی ----------
         ChatCard {

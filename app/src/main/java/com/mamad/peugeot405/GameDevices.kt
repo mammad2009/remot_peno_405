@@ -348,6 +348,14 @@ class CarVoice(private val ctx: Context) {
         tts?.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "405")
     }
 
+    // جمله‌ی فارسی که مغز ماکت (v33) میفرسته (S:متن) ؛ فقط وقتی «صدای ماکت» روشنه و صدای فارسی نصبه
+    fun speakText(t: String, en: Boolean) {
+        if (!speak || muted || en || t.isBlank()) return
+        ensureTts(false)
+        if (!ttsOk || fallbackEn) return
+        tts?.speak(t.replace("...", " ").trim(), TextToSpeech.QUEUE_FLUSH, null, "405b")
+    }
+
     fun prepareSpeak(en: Boolean) = ensureTts(en)
 
     private fun ensureTts(en: Boolean) {
