@@ -36,7 +36,7 @@ val Hair = Color(0x1FFFFFFF)        // خط موئی کم‌رنگ
 val Hair2 = Color(0x33FFFFFF)       // خط موئی پررنگ‌تر
 
 // نسبت ارتفاع به عرض عکس شیر (peugeot_lion.png)
-const val LION_RATIO = 1.058f
+const val LION_RATIO = 1.0f
 
 // پنل مات و گرافیتی با لبه‌ی موئی ؛ بالای لبه کمی روشن‌تر (مثل نور روی فلز)
 fun Modifier.luxPanel(shape: Shape, accent: Color = Silver, active: Boolean = false): Modifier =
