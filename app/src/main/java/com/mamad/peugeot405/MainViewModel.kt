@@ -30,7 +30,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val brain = BrainState(app)
     val shake = ShakeDetector(app) { sendQuiet("#SHAKE\n") }
     val voiceCmd = VoiceCmd(app) { w, said ->
-        brain.setNote("🎙 $said")
+        brain.showNote("🎙 $said")
         sendQuiet("#CMD:$w\n")
     }
 
@@ -222,10 +222,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (line.startsWith("AC:")) {
             val i = line.substring(3).toIntOrNull() ?: return
             val names = if (lang == "en") BrainState.ACH_EN else BrainState.ACH_FA
-            brain.setNote("🏆 " + (names.getOrNull(i) ?: ""))
+            brain.showNote("🏆 " + (names.getOrNull(i) ?: ""))
             return
         }
-        if (line.startsWith("CH:done")) { brain.setNote(if (lang == "en") "✅ Daily challenge done!" else "✅ چالش امروز تموم شد!"); return }
+        if (line.startsWith("CH:done")) { brain.showNote(if (lang == "en") "✅ Daily challenge done!" else "✅ چالش امروز تموم شد!"); return }
         if (line.startsWith("EV:")) {
             game.onEvent(line, lang == "en")
         } else if (line.startsWith("GS:")) {

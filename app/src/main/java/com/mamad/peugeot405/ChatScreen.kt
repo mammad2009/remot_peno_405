@@ -118,7 +118,7 @@ private fun BrainCard(vm: MainViewModel) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PillButton(
                 tr("لرزش: ", "Vibrate: ") + (if (vm.brain.vibrate) tr("روشن", "on") else tr("خاموش", "off")), Mint, vm.brain.vibrate, true,
-                Modifier.weight(1f), 46.dp, onClick = { vm.brain.setVibrate(!vm.brain.vibrate) }
+                Modifier.weight(1f), 46.dp, onClick = { vm.brain.changeVibrate(!vm.brain.vibrate) }
             )
             PillButton(
                 tr("صدای ماکت: ", "Voice: ") + (if (vm.game.voice.speak) tr("روشن", "on") else tr("خاموش", "off")), Cyan, vm.game.voice.speak, true,

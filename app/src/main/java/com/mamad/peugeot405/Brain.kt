@@ -54,9 +54,9 @@ class BrainState(private val ctx: Context) {
         if (a.size >= 25) p.edit().putString("hab", a.take(25).joinToString(",")).apply()
     }
 
-    fun setNote(s: String) { note = s }
+    fun showNote(s: String) { note = s }
 
-    fun setVibrate(v: Boolean) {
+    fun changeVibrate(v: Boolean) {
         vibrate = v
         p.edit().putBoolean("vib", v).apply()
     }
